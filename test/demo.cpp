@@ -7,6 +7,16 @@
 #include <iostream>
 // system headers
 
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess)
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
 int main(void)
 {
   float *a_h, *a_d;  // Pointer to host & device arrays
@@ -25,7 +35,7 @@ int main(void)
   square_array(a_d, N);
 
   // Retrieve result from device and store it in host array
-  cudaMemcpy(a_h, a_d, sizeof(float)*N, cudaMemcpyDeviceToHost);
+  gpuErrchk(cudaMemcpy(a_h, a_d, sizeof(float)*N, cudaMemcpyDeviceToHost));
   // Print results
   for (int i=0; i<N; i++) {
       printf("%d %f\n", i, a_h[i]);
@@ -33,5 +43,5 @@ int main(void)
 
   // Cleanup
   free(a_h);
-  cudaFree(a_d);
+  gpuErrchk(cudaFree(a_d));
 }

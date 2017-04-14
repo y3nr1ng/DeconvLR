@@ -1,6 +1,6 @@
 // corresponded header file
 // necessary project headers
-#include "DeconvLRCore.cuh"
+#include "DeconvLRCore.h"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
 // standard libraries headers

@@ -5,6 +5,7 @@ set (CMAKE_BUILD_TYPE Debug)
 
 # set output directories
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/lib")
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 
 # find source files
 file (GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*")

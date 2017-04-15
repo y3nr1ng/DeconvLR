@@ -9,6 +9,28 @@
 #include <cstdlib>
 // system headers
 
+class DeconvLR::Impl {
+public:
+    Impl() {
+
+    }
+    ~Impl() {
+
+    }
+
+    void do_internal_work();
+
+private:
+};
+
+DeconvLR::DeconvLR()
+    : pimpl(std::make_unique<Impl>()) {
+}
+
+DeconvLR::~DeconvLR() {
+
+}
+
 void square_calc_demo() {
     float *a_h, *a_d;  // Pointer to host & device arrays
     const int N = 10;  // Number of elements in arrays

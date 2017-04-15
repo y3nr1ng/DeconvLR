@@ -36,7 +36,7 @@ cuda_include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # configure compiler
 add_compile_options (-Wall)
-add_compile_options (-std=c++11)
+add_compile_options (-std=c++14)
 include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # generate the shared library

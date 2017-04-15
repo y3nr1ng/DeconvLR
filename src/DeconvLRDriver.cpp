@@ -21,6 +21,7 @@ public:
     void do_internal_work();
 
 private:
+    int private_int = 0;
 };
 
 DeconvLR::DeconvLR()

@@ -1,13 +1,20 @@
 #ifndef IMAGE_STACK_HPP
 #define IMAGE_STACK_HPP
 
-class ImageStack {
-public:
+#include <cstdint>
+
+struct ImageStack {
     ImageStack();
     ~ImageStack();
 
+    uint16_t *data;
+
 private:
-    
+    void open();
+    void close();
+
+    void read();
+    void flush();
 };
 
 #endif

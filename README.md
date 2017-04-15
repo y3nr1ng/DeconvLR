@@ -1,4 +1,4 @@
-# Project Title
+# DeconvLR
 An implementation of the Lucy-Richardson deconvolution algorithm.
 
 ## Getting Started

@@ -65,7 +65,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
 ## License
-This project is licensed under the Apache License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the Apache License - see the [LICENSE](LICENSE) file for details
 
 ## Acknowledgments
 * Hat tip to anyone who's code was used

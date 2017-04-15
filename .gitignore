@@ -42,3 +42,6 @@ CTestTestfile.cmake
 
 # Atom Linter
 .gcc-flags.json
+
+# macOS cache
+.DS_Store

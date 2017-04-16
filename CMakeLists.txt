@@ -41,7 +41,7 @@ include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # generate the shared library
 cuda_add_library (deconvlr SHARED ${SOURCES})
-target_link_libraries (deconvlr ${Boost_LIBRARIES} ${CUDA_LIBRARIES})
+target_link_libraries (deconvlr ${Boost_LIBRARIES} ${CUDA_LIBRARIES} tiff)
 
 # build demo program
 add_subdirectory (test)

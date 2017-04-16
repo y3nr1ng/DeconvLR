@@ -3,7 +3,7 @@ file (GLOB SOURCES "${PROJECT_SOURCE_DIR}/test/*.cpp")
 # configure compiler
 add_compile_options (-Wall)
 add_compile_options (-std=c++14)
-include_directories ("${PROJECT_SOURCE_DIR}/include")
+include_directories ("${PROJECT_SOURCE_DIR}/include" "/opt/X11/include")
 
 # generate the executable
 add_executable (deconvlr_demo ${SOURCES})

@@ -34,6 +34,13 @@ endif (NOT CUDA_FOUND)
 list (APPEND CUDA_NVCC_FLAGS "-arch=compute_20; -code=sm_20; -code=sm_30; -std=c++11")
 cuda_include_directories ("${PROJECT_SOURCE_DIR}/include")
 
+# x11 (debug)
+find_package(X11 REQUIRED)
+include_directories(${X11_INCLUDE_DIR})
+if (NOT CUDA_FOUND)
+    message (FATAL_ERROR "Fatal error: X11 library required.")
+endif (NOT CUDA_FOUND)
+
 # configure compiler
 add_compile_options (-Wall)
 add_compile_options (-std=c++14)
@@ -41,7 +48,7 @@ include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # generate the shared library
 cuda_add_library (deconvlr SHARED ${SOURCES})
-target_link_libraries (deconvlr ${Boost_LIBRARIES} ${CUDA_LIBRARIES} tiff)
+target_link_libraries (deconvlr ${Boost_LIBRARIES} ${CUDA_LIBRARIES} tiff ${X11_LIBRARIES})
 
 # build demo program
-add_subdirectory (test)
+add_subdirectory ("util")

@@ -3,6 +3,7 @@
 
 // corresponded header file
 // necessary project headers
+#include "ImageStack.hpp"
 // 3rd party libraries headers
 // standard libraries headers
 #include <memory>
@@ -14,20 +15,12 @@ public:
     ~DeconvLR();
 
     // update resource allocation
-    void updatePlans();
-
-    // upload the image to device
-    void upload();
-    // run the deconvolution procedure
-    void run();
-    // download the image from device
-    void download();
+    void setOTF(const ImageStack<float> &otf,
+                const float dr = 1.0f, const float dz = 1.0f);
 
 private:
     class Impl;
     std::unique_ptr<Impl> pimpl;
 };
-
-void square_calc_demo(void);
 
 #endif

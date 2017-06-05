@@ -45,3 +45,6 @@ CTestTestfile.cmake
 
 # macOS cache
 .DS_Store
+
+# Data set
+data/

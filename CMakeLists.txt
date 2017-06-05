@@ -31,7 +31,7 @@ if (NOT CUDA_FOUND)
 endif (NOT CUDA_FOUND)
 # configure cuda
 #   compile for baseline of CC 2.0, and archtecture 2.0/3.0
-list (APPEND CUDA_NVCC_FLAGS "-arch=compute_20; -code=sm_20; -code=sm_30; -std=c++11")
+list (APPEND CUDA_NVCC_FLAGS "-arch=compute_20; -code=sm_20; -code=sm_30; -code=sm_52; -std=c++11")
 cuda_include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # x11 (debug)

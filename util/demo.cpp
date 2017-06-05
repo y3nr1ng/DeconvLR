@@ -12,21 +12,25 @@ int main(void)
 {
     TIFFSetWarningHandler(NULL);
 
-    std::string origImgFile = "data/bigradient/bigradient_conv.tif";
-    std::string otfFile = "data/bigradient/psf.tif";
+    std::string origImgFile = "data/bead/bigradient_conv.tif";
+    std::string psfFile = "data/bead/psf.tif";
 
     // scan the folder
     // search and load the otf
-    ImageStack<float> otf(otfFile);
-    otf.debug();
+    ImageStack<uint16_t> psf(psfFile);
+    psf.debug();
     // init the deconvlr
-    DeconvLR deconWorker;
+    DeconvLR deconvWorker;
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     // iterate through the images
     //      open the image
-    ImageStack<uint16_t> origImg(origImgFile);
+    const ImageStack<uint16_t> input(origImgFile);
+    ImageStack<uint16_t> output(input, 0);
     //      use the first image to init the resources
-    deconWorker.setOTF(otf);
+    deconvWorker.setVolumeSize(input.nx, input.ny, input.nz);
+    deconvWorker.setPSF(psf);
     //      run the deconv
+    deconvWorker.process(output, input);
     //      save the image
     // save the log
     // release the resources

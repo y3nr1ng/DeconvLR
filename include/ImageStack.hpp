@@ -31,6 +31,12 @@ public:
         }
     }
 
+    // init image of the same dimension with the default value
+    template <typename Q>
+    ImageStack(const ImageStack<Q> &tpl, const T value) {
+        image.assign(tpl.object(), "xyzc", value);
+    }
+
     void debug() {
         std::cout << "file: " << path << std::endl;
         image.display();
@@ -40,6 +46,13 @@ public:
         return image.data();
     }
 
+    const CImg<T> & object() const {
+        return image;
+    }
+
+    /*
+     * Volume size
+     */
     size_t nx() const {
         return image._width;
     }

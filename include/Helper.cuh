@@ -21,19 +21,4 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     }
 }
 
-inline __host__ __device__ float3 operator*(float3 &a, uint3 b)
-{
-    return make_float3(a.x*b.x, a.y*b.y, a.z*b.z);
-}
-
-inline __host__ __device__ float3 operator/(float a, float3 b)
-{
-    return make_float3(a/b.x, a/b.y, a/b.z);
-}
-
-inline __host__ __device__ float3 operator/(float3 &a, float3 &b)
-{
-    return make_float3(a.x/b.x, a.y/b.y, a.z/b.z);
-}
-
 #endif

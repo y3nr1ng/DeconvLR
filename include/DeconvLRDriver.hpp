@@ -14,12 +14,20 @@ public:
     DeconvLR();
     ~DeconvLR();
 
-    // update resource allocation
-    void setOTF(const ImageStack<float> &otf,
-                const float dr = 1.0f, const float dz = 1.0f);
+    void setResolution(
+        const float dx, const float dy, const float dz,
+        const float dpx=1.0f, const float dpy=1.0f, const float dpz=1.0f
+    );
+    void setVolumeSize(const size_t nx, const size_t ny, const size_t nz);
+    void setPSF(const ImageStack<uint16_t> &psf);
+
+    void process(
+        ImageStack<uint16_t> &output,
+        const ImageStack<uint16_t> &input
+    );
 
 private:
-    class Impl;
+    struct Impl;
     std::unique_ptr<Impl> pimpl;
 };
 

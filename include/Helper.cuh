@@ -18,7 +18,7 @@ inline void cudaAssert(
     bool abort=true
 ) {
     if (code != cudaSuccess) {
-        fprintf(stderr,"CUDA Runtime: %s %s %d\n", cudaGetErrorString(code), file, line);
+        fprintf(stderr,"CUDA Runtime: %s\n.. %s ln%d\n", cudaGetErrorString(code), file, line);
         if (abort) {
             exit(code);
         }

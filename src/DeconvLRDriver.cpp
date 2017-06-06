@@ -9,6 +9,7 @@
 // standard libraries headers
 #include <exception>
 #include <cmath>
+#include <cstdio>
 // system headers
 
 struct DeconvLR::Impl {
@@ -57,6 +58,8 @@ void DeconvLR::setVolumeSize(
 }
 
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
+    fprintf(stderr, "[DEBUG] --> setPSF()\n");
+
     uint16_t *hPsf;
     cudaExtent psfSize = make_cudaExtent(
         psf.nx() * sizeof(uint16_t),   // width in bytes
@@ -76,6 +79,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         0
     ));
 
+    fprintf(stderr, "[DEBUG] host memory pinned\n");
+
     /*
      * Convert from uint16_t to cufftReal
      */
@@ -91,6 +96,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         psfSize
     );
 
+    fprintf(stderr, "[DEBUG] type conversion completed\n");
+
     /*
      * cuFFT R2C
      */
@@ -105,6 +112,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     );
     cudaErrChk(cudaMalloc3D(&otfLut, otfSize));
 
+    fprintf(stderr, "[DEBUG] template OTF workspace created\n");
+
     // plan and execute FFT
     cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
@@ -116,6 +125,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         (cufftReal *)dPsf.ptr,       // input
         (cufftComplex *)otfLut.ptr)  // output
     );
+
+    fprintf(stderr, "[DEBUG] OTF created\n");
 
     // release the cuFFT handle and integer PSF
     cudaErrChk(cufftDestroy(otfFFTHandle));
@@ -135,6 +146,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         cudaArrayDefault
     ));
 
+    fprintf(stderr, "[DEBUG] OTF template cudaArray allocated\n");
+
     cudaMemcpy3DParms parms = {0};
     parms.srcPtr = otfLut;
     parms.dstArray = otfLutArray;
@@ -144,6 +157,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 
     // release the template OTF
     cudaErrChk(cudaFree(otfLut.ptr));
+
+    fprintf(stderr, "[DEBUG] OTF template copied, D2D\n");
 
     /*
      * Interpolate to volume size
@@ -167,6 +182,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     cudaTextureObject_t otfTex = 0;
     cudaErrChk(cudaCreateTextureObject(&otfTex, &resDesc, &texDesc, NULL));
 
+    fprintf(stderr, "[DEBUG] template bind to a texture object\n");
+
     // update OTF size to full volume
     otfSize.width = pimpl->volumeSize.x * sizeof(cufftComplex);
     otfSize.height = pimpl->volumeSize.y;
@@ -174,8 +191,12 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     // allocate OTF workspace
     cudaErrChk(cudaMalloc3D(&pimpl->otf, otfSize));
 
+    fprintf(stderr, "[DEBUG] pimpl OTF workspace allocated\n");
+
     // interpolate
     //TODO interpolate otfTex using pimpl->voxelRatio onto pimpl->otf
+
+    fprintf(stderr, "[DEBUG] interpolation completed\n");
 
     /*
      * Cleanup
@@ -185,6 +206,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     cudaErrChk(cudaFreeArray(otfLutArray));
     // unregister the host memory region
     cudaErrChk(cudaHostUnregister(psf.data()));
+
+    fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }
 
 void DeconvLR::process(

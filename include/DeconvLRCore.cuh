@@ -8,12 +8,12 @@
 // standard libraries headers
 // system headers
 
-class DeconvLRCore {
-public:
-    DeconvLRCore();
-    ~DeconvLRCore();
+namespace Kernel {
 
-private:
-};
+template <typename T_out, typename T_in>
+__host__
+void convertType(T_out *dst, T_in *src, const cudaExtent size);
+
+}
 
 #endif

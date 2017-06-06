@@ -27,7 +27,7 @@ struct DeconvLR::Impl {
     /*
      * Device pointers
      */
-    cudaPitchedPtr *otf;
+    cudaPitchedPtr otf;
 };
 
 DeconvLR::DeconvLR()

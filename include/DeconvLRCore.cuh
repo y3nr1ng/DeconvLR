@@ -4,16 +4,15 @@
 // corresponded header file
 // necessary project headers
 // 3rd party libraries headers
+#include <cuda_runtime.h>
 // standard libraries headers
 // system headers
 
 namespace Kernel {
 
-// place the original psf data into texture memory for interpolation
-void uploadRawPSF(
-    const uint16_t *hPsf,
-    const size_t nx, const size_t ny, const size_t nz
-);
+template <typename T_out, typename T_in>
+__host__
+void convertType(T_out *dst, T_in *src, const cudaExtent size);
 
 }
 

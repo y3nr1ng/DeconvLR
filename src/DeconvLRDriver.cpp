@@ -58,25 +58,38 @@ void DeconvLR::setVolumeSize(
 
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     uint16_t *hPsf;
-    dim3 psfSize(psf.nx(), psf.ny(), psf.nz());
+    cudaExtent psfSize = make_cudaExtent(
+        psf.nx() * sizeof(uint16_t),   // width in bytes
+        psf.ny(),
+        psf.nz()
+    );
 
     // pin down the host memory
     cudaErrChk(cudaHostRegister(
         psf.data(),
-        psfSize.x * psfSize.y * psfSize.z * sizeof(uint16_t),
+        psfSize.width * psfSize.height * psfSize.depth,
         cudaHostRegisterMapped
     ));
     cudaErrChk(cudaHostGetDevicePointer(
-        &hPsf,    // device pointer for mapped address
-        psf.data(), // requested host pointer
+        &hPsf,        // device pointer for mapped address
+        psf.data(),   // requested host pointer
         0
     ));
 
     /*
      * Convert from uint16_t to cufftReal
      */
-    cufftReal *dPsf;
-    //TODO
+    cudaPitchedPtr dPsf;
+    // update pitch to base on cufftReal
+    psfSize.width = psf.nx() * sizeof(cufftReal);
+    // create workspace for the PSF
+    cudaErrChk(cudaMalloc3D(&dPsf, psfSize));
+
+    Kernel::convertType<cufftReal, uint16_t>(
+        (cufftReal *)dPsf.ptr,
+        hPsf,
+        psfSize
+    );
 
     /*
      * cuFFT R2C
@@ -86,9 +99,9 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 
     // create workspace for the OTF
     cudaExtent otfSize = make_cudaExtent(
-        psfSize.x * sizeof(cufftComplex),   // width in bytes
-        psfSize.y,
-        std::floor((float)psfSize.z / 2) + 1
+        psf.nx() * sizeof(cufftComplex),   // width in bytes
+        psf.ny(),
+        std::floor((float)psf.nz() / 2) + 1
     );
     cudaErrChk(cudaMalloc3D(&otfLut, otfSize));
 
@@ -98,10 +111,15 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         otfSize.width, otfSize.height, otfSize.depth,
         CUFFT_R2C
     ));
-    cudaErrChk(cufftExecR2C(otfFFTHandle, dPsf, (cufftComplex *)otfLut.ptr));
+    cudaErrChk(cufftExecR2C(
+        otfFFTHandle,
+        (cufftReal *)dPsf.ptr,       // input
+        (cufftComplex *)otfLut.ptr)  // output
+    );
 
-    // release the resources
+    // release the cuFFT handle and integer PSF
     cudaErrChk(cufftDestroy(otfFFTHandle));
+    cudaErrChk(cudaFree(dPsf.ptr));
 
     // convert to CUDA array
     cudaArray_t otfLutArray;

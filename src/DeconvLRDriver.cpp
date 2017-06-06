@@ -167,8 +167,15 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     cudaTextureObject_t otfTex = 0;
     cudaErrChk(cudaCreateTextureObject(&otfTex, &resDesc, &texDesc, NULL));
 
+    // update OTF size to full volume
+    otfSize.width = pimpl->volumeSize.x * sizeof(cufftComplex);
+    otfSize.height = pimpl->volumeSize.y;
+    otfSize.depth = pimpl->volumeSize.z;
+    // allocate OTF workspace
+    cudaErrChk(cudaMalloc3D(&pimpl->otf, otfSize));
+
     // interpolate
-    //TODO
+    //TODO interpolate otfTex using pimpl->voxelRatio onto pimpl->otf
 
     /*
      * Cleanup

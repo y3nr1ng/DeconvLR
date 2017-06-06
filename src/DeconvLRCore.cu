@@ -15,7 +15,7 @@ inline int iDivUp(int a, int b) {
 template <typename T_out, typename T_in>
 __global__
 void convertTypeKernel(T_out *dst, T_in *src, const cudaExtent size) {
-
+    //TODO fill the blank here, type convert form T_in to T_out
 }
 
 template <typename T_out, typename T_in>

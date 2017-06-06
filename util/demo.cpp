@@ -12,7 +12,7 @@ int main(void)
 {
     TIFFSetWarningHandler(NULL);
 
-    std::string origImgFile = "data/bead/bigradient_conv.tif";
+    std::string origImgFile = "data/bead/sample.tif";
     std::string psfFile = "data/bead/psf.tif";
 
     // scan the folder

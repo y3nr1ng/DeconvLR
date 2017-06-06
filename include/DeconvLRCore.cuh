@@ -4,16 +4,17 @@
 // corresponded header file
 // necessary project headers
 // 3rd party libraries headers
-#include <cuda_runtime.h>
 // standard libraries headers
 // system headers
 
-class DeconvLRCore {
-public:
-    DeconvLRCore();
-    ~DeconvLRCore();
+namespace Kernel {
 
-private:
-};
+// place the original psf data into texture memory for interpolation
+void uploadRawPSF(
+    const uint16_t *hPsf,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
+}
 
 #endif

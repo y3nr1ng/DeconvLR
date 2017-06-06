@@ -43,7 +43,7 @@ public:
     }
 
     T * data() const {
-        return image.data();
+        return image._data;
     }
 
     const CImg<T> & object() const {

@@ -6,10 +6,10 @@
 // standard libraries headers
 // system headers
 
-DeconvLRCore::DeconvLRCore() {
+namespace Kernel {
 
+inline int iDivUp(int a, int b) {
+    return (a % b != 0) ? (a / b + 1) : (a / b);
 }
-
-DeconvLRCore::~DeconvLRCore() {
 
 }

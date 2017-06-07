@@ -2,7 +2,7 @@ file (GLOB SOURCES "${PROJECT_SOURCE_DIR}/util/*.cpp")
 
 # configure compiler
 add_compile_options (-Wall)
-add_compile_options (-std=c++14)
+add_compile_options (-std=c++11)
 include_directories ("${PROJECT_SOURCE_DIR}/include" "/opt/X11/include")
 
 # generate the executable

@@ -29,7 +29,6 @@ inline void cudaAssert(
 	}
 }
 
-
 /*
  * cuFFT
  */
@@ -81,6 +80,7 @@ static const char * cufftGetErrorString(cufftResult error) {
             return "<unknown>";
     }
 }
+
 inline void cudaAssert(
 	cufftResult_t code,
 	const char *file, int line,

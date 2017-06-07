@@ -184,11 +184,18 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 	texDesc.addressMode[1] = cudaAddressModeBorder;
 	texDesc.addressMode[2] = cudaAddressModeBorder;
 	// access by [0, 1]
-	texDesc.readMode = cudaReadModeNormalizedFloat;
+	texDesc.normalizedCoords = 1;
+
+	cudaResourceViewDesc viewDesc;
+	memset(&viewDesc, 0, sizeof(viewDesc));
+	viewDesc.format = cudaResViewFormatFloat2;
+	viewDesc.width = otfSize.width;
+	viewDesc.height = otfSize.height;
+	viewDesc.depth = otfSize.depth;
 
 	// bind to texture object
 	cudaTextureObject_t otfTex = 0;
-	cudaErrChk(cudaCreateTextureObject(&otfTex, &resDesc, &texDesc, NULL));
+	cudaErrChk(cudaCreateTextureObject(&otfTex, &resDesc, &texDesc, &viewDesc));
 
 	fprintf(stderr, "[DEBUG] template bind to a texture object\n");
 

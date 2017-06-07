@@ -18,7 +18,7 @@ int main(void)
     // scan the folder
     // search and load the otf
     ImageStack<uint16_t> psf(psfFile);
-    psf.debug();
+    //psf.debug();
     // init the deconvlr
     DeconvLR deconvWorker;
     deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);

@@ -20,7 +20,7 @@ inline void cudaAssert(
 	cudaError_t code,
 	const char *file, int line,
 	bool abort=true
-	) {
+) {
 	if (code != cudaSuccess) {
 		fprintf(stderr,"CUDA Runtime: %s\n.. %s ln%d\n", cudaGetErrorString(code), file, line);
 		if (abort) {

@@ -80,7 +80,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
         cudaHostRegisterMapped
    ));
 	cudaErrChk(cudaHostGetDevicePointer(
-        &hPsf, // device pointer for mapped address
+        &hPsf, 		// device pointer for mapped address
         psf.data(), // requested host pointer
         0
     ));
@@ -114,7 +114,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 	cudaExtent otfSize = make_cudaExtent(
 		psf.nx() * sizeof(cufftComplex),   // width in bytes
 		psf.ny(),
-		std::floor((float)psf.nz() / 2) + 1
+		psf.nz()/2 + 1
     );
 	cudaErrChk(cudaMalloc3D(&otfLut, otfSize));
 
@@ -140,11 +140,13 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 
 	// convert to CUDA array
 	cudaArray_t otfLutArray;
+	// cufftComplex is essentially a float2
 	cudaChannelFormatDesc formDesc = cudaCreateChannelDesc(
-		32, 0, 0, 0,
+		32, 32, 0, 0,
 		cudaChannelFormatKindFloat
 	);
-
+	// width field in elements
+	otfSize.width = psf.nx();
 	cudaErrChk(cudaMalloc3DArray(
         &otfLutArray,
         &formDesc,

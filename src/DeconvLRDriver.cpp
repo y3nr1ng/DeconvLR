@@ -183,6 +183,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 	texDesc.addressMode[0] = cudaAddressModeBorder;
 	texDesc.addressMode[1] = cudaAddressModeBorder;
 	texDesc.addressMode[2] = cudaAddressModeBorder;
+	// linear readout
+	texDesc.filterMode = cudaFilterModeLinear;
 	// access by [0, 1]
 	texDesc.normalizedCoords = 1;
 

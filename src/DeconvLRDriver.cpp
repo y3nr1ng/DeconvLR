@@ -31,8 +31,14 @@ struct DeconvLR::Impl {
     cudaPitchedPtr otf;
 };
 
+// C++14 feature
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
 DeconvLR::DeconvLR()
-    : pimpl(std::make_unique<Impl>()) {
+    : pimpl(make_unique<Impl>()) {
 }
 
 DeconvLR::~DeconvLR() {

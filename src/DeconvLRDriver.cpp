@@ -48,13 +48,13 @@ DeconvLR::~DeconvLR() {
 void DeconvLR::setResolution(
 	const float dx, const float dy, const float dz,
 	const float dpx, const float dpy, const float dpz
-	) {
+) {
 	pimpl->voxelRatio = make_float3(dx/dpx, dy/dpy, dz/dpz);
 }
 
 void DeconvLR::setVolumeSize(
 	const size_t nx, const size_t ny, const size_t nz
-	) {
+) {
 	if (nx > 4096 or ny > 4096 or nz > 4096) {
 		throw std::range_error("volume size exceeds maximum constraints");
 	}
@@ -71,19 +71,19 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 		psf.nx() * sizeof(uint16_t),   // width in bytes
 		psf.ny(),
 		psf.nz()
-		);
+	);
 
 	// pin down the host memory
 	cudaErrChk(cudaHostRegister(
-				   psf.data(),
-				   psfSize.width * psfSize.height * psfSize.depth,
-				   cudaHostRegisterMapped
-				   ));
+        psf.data(),
+        psfSize.width * psfSize.height * psfSize.depth,
+        cudaHostRegisterMapped
+   ));
 	cudaErrChk(cudaHostGetDevicePointer(
-				   &hPsf, // device pointer for mapped address
-				   psf.data(), // requested host pointer
-				   0
-				   ));
+        &hPsf, // device pointer for mapped address
+        psf.data(), // requested host pointer
+        0
+    ));
 
 	fprintf(stderr, "[DEBUG] host memory pinned\n");
 
@@ -100,7 +100,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 		(cufftReal *)dPsf.ptr,
 		hPsf,
 		psfSize
-		);
+	);
 
 	fprintf(stderr, "[DEBUG] type conversion completed\n");
 
@@ -115,22 +115,22 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 		psf.nx() * sizeof(cufftComplex),   // width in bytes
 		psf.ny(),
 		std::floor((float)psf.nz() / 2) + 1
-		);
+    );
 	cudaErrChk(cudaMalloc3D(&otfLut, otfSize));
 
 	fprintf(stderr, "[DEBUG] template OTF workspace created\n");
 
 	// plan and execute FFT
 	cudaErrChk(cufftPlan3d(
-				   &otfFFTHandle,
-				   otfSize.width, otfSize.height, otfSize.depth,
-				   CUFFT_R2C
-				   ));
+        &otfFFTHandle,
+        otfSize.width, otfSize.height, otfSize.depth,
+        CUFFT_R2C
+    ));
 	cudaErrChk(cufftExecR2C(
-				   otfFFTHandle,
-				   (cufftReal *)dPsf.ptr, // input
-				   (cufftComplex *)otfLut.ptr) // output
-	           );
+        otfFFTHandle,
+        (cufftReal *)dPsf.ptr,      // input
+        (cufftComplex *)otfLut.ptr  // output
+    ));
 
 	fprintf(stderr, "[DEBUG] OTF created\n");
 
@@ -143,14 +143,14 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 	cudaChannelFormatDesc formDesc = cudaCreateChannelDesc(
 		32, 0, 0, 0,
 		cudaChannelFormatKindFloat
-		);
+	);
 
 	cudaErrChk(cudaMalloc3DArray(
-				   &otfLutArray,
-				   &formDesc,
-				   otfSize,
-				   cudaArrayDefault
-				   ));
+        &otfLutArray,
+        &formDesc,
+        otfSize,
+        cudaArrayDefault
+	));
 
 	fprintf(stderr, "[DEBUG] OTF template cudaArray allocated\n");
 
@@ -219,6 +219,6 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
 void DeconvLR::process(
 	ImageStack<uint16_t> &output,
 	const ImageStack<uint16_t> &input
-	) {
+) {
 
 }

@@ -4,6 +4,7 @@
 // 3rd party libraries headers
 #include <cufft.h>
 // standard libraries headers
+#include <cstdint>
 // system headers
 
 namespace Kernel {

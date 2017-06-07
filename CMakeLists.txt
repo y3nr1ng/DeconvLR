@@ -11,9 +11,9 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 file (GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*")
 
 # boost
-find_package (Boost 1.59.0 COMPONENTS filesystem iostreams REQUIRED)
+find_package (Boost 1.49.0 COMPONENTS filesystem iostreams REQUIRED)
 if (NOT Boost_FOUND)
-    message (FATAL_ERROR "Fatal error: Boost (version >= 1.59) required.")
+    message (FATAL_ERROR "Fatal error: Boost (version >= 1.49) required.")
 else ()
     message (STATUS "Setting up Boost")
     message (STATUS " Includes - ${Boost_INCLUDE_DIRS}")
@@ -43,7 +43,7 @@ endif (NOT CUDA_FOUND)
 
 # configure compiler
 add_compile_options (-Wall)
-add_compile_options (-std=c++14)
+add_compile_options (-std=c++11)
 include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # generate the shared library

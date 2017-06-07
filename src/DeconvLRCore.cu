@@ -14,20 +14,38 @@ inline int iDivUp(int a, int b) {
 
 template <typename T_out, typename T_in>
 __global__
-void convertTypeKernel(T_out *dst, T_in *src, const cudaExtent size) {
-    //TODO fill the blank here, type convert form T_in to T_out
+void convertTypeKernel(T_out *dst, T_in *src,
+                       const int nx, const int ny, const int nz,
+                       const size_t pitchDst, const size_t pitchSrc) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; 
+         i < nx * ny * nz; 
+         i += blockDim.x * gridDim.x) {
+        int z = i / nx / ny;
+        int y = (i / nx) % ny;
+        int x = i % nx;
+        int nPitchSrc = pitchSrc / sizeof(T_in);
+        int nPitchDst = pitchDst / sizeof(T_out);
+        T_in* ptrSrc = src + (z * ny + y) * nPitchSrc + x;
+        T_out* ptrDst = dst + (z * ny + y) * nPitchDst + x;
+        *ptrDst = (T_out)(*ptrSrc);
+    }
 }
 
 template <typename T_out, typename T_in>
 __host__
-void convertType(T_out *dst, T_in *src, const cudaExtent size) {
+void convertType(T_out *dst, T_in *src,
+                 const cudaExtent extDst, const cudaExtent extSrc) {
     int nSMs;
     cudaDeviceGetAttribute(&nSMs, cudaDevAttrMultiProcessorCount, 0);
-
-    convertTypeKernel<T_out, T_in><<<32*nSMs, 256>>>(dst, src, size);
+    int nx = extSrc.width / sizeof(T_in);
+    int ny = extSrc.height;
+    int nz = extSrc.depth;
+    convertTypeKernel<T_out, T_in><<<32*nSMs, 256>>>(dst, src, nx, ny, nz,
+                                                     extDst.width, extSrc.width);
 }
 
 // explicit instantiation
-template void convertType(cufftReal *dst, uint16_t *src, const cudaExtent size);
+template void convertType(cufftReal *dst, uint16_t *src,
+                          const cudaExtent extDst, const cudaExtent extSrc);
 
 }

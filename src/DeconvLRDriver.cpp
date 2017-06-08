@@ -113,7 +113,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     otpTplExtent.width = psf.nx();
 	cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
-        otfTplExtent.depth, otfTplExtent.height, otfTplExtent.width,
+        otfTplExtent.width, otfTplExtent.height, otfTplExtent.depth,
         CUFFT_R2C
     ));
     fprintf(stderr, "[DEBUG] R2C FFT planned\n");

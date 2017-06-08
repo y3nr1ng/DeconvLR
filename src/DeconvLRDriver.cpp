@@ -98,23 +98,25 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
      * Create OTF
      */
     // allocate space for the template OTF
-    cufftComplex *otfTpl;
+    cudaPitchedPtr otfTpl;
     cudaExtent otfTplExtent = make_cudaExtent(
 		psf.nx() * sizeof(cufftComplex),   // width in bytes
 		psf.ny(),
 		psf.nz()/2+1
 	);
+    cudaErrChk(cudaMalloc3D(&otfTpl, otfTplExtent));
 
     // plan and execute FFT
+    cufftHandle otfFFTHandle;
 	cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
-        otfSize.width, otfSize.height, otfSize.depth,
+        otfTplExtent.width, otfTplExtent.height, otfTplExtent.depth,
         CUFFT_R2C
     ));
 	cudaErrChk(cufftExecR2C(
         otfFFTHandle,
         hPsf,       // input
-        otfTpl.ptr  // output
+        (cufftComplex *)otfTpl.ptr  // output
     ));
     fprintf(stderr, "[DEBUG] OTF = FFT(PSF)\n");
     // unpin the PSF memory region

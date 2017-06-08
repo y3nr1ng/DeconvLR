@@ -55,7 +55,7 @@ void DeconvLR::setResolution(
 void DeconvLR::setVolumeSize(
 	const size_t nx, const size_t ny, const size_t nz
 ) {
-	if (nx > 4096 or ny > 4096 or nz > 4096) {
+	if (nx > 2048 or ny > 2048 or nz > 2048) {
 		throw std::range_error("volume size exceeds maximum constraints");
 	}
 	pimpl->volumeSize.x = nx;
@@ -63,64 +63,49 @@ void DeconvLR::setVolumeSize(
 	pimpl->volumeSize.z = nz;
 }
 
-void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
+void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	fprintf(stderr, "[DEBUG] --> setPSF()\n");
 
-	uint16_t *hPsf;
-	cudaExtent psfSize = make_cudaExtent(
-		psf.nx() * sizeof(uint16_t),   // width in bytes
+    /*
+     * Convert to float
+     */
+    ImageStack<cufftReal> psf(psf_u16);
+	fprintf(stderr, "[DEBUG] type conversion completed\n");
+
+	cufftReal *hPsf;
+	cudaExtent psfExtent = make_cudaExtent(
+		psf.nx() * sizeof(cufftReal),   // width in bytes
 		psf.ny(),
 		psf.nz()
 	);
 
-	// pin down the host memory
+	/*
+     * Pin the host memory region
+	 */
 	cudaErrChk(cudaHostRegister(
         psf.data(),
-        psfSize.width * psfSize.height * psfSize.depth,
+        psfExtent.width * psfExtent.height * psfExtent.depth,
         cudaHostRegisterMapped
-   ));
+    ));
 	cudaErrChk(cudaHostGetDevicePointer(
         &hPsf, 		// device pointer for mapped address
         psf.data(), // requested host pointer
         0
     ));
-
 	fprintf(stderr, "[DEBUG] host memory pinned\n");
 
-	/*
-	 * Convert from uint16_t to cufftReal
-	 */
-	cudaPitchedPtr dPsf;
-	// update pitch to base on cufftReal
-	psfSize.width = psf.nx() * sizeof(cufftReal);
-	// create workspace for the PSF
-	cudaErrChk(cudaMalloc3D(&dPsf, psfSize));
-
-	Kernel::convertType<cufftReal, uint16_t>(
-		(cufftReal *)dPsf.ptr,
-		hPsf,
-		psfSize
-	);
-
-	fprintf(stderr, "[DEBUG] type conversion completed\n");
-
-	/*
-	 * cuFFT R2C
-	 */
-	cudaPitchedPtr otfLut;
-	cufftHandle otfFFTHandle;
-
-	// create workspace for the OTF
-	cudaExtent otfSize = make_cudaExtent(
+    /*
+     * Create OTF
+     */
+    // allocate space for the template OTF
+    cufftComplex *otfTpl;
+    cudaExtent otfTplExtent = make_cudaExtent(
 		psf.nx() * sizeof(cufftComplex),   // width in bytes
 		psf.ny(),
-		psf.nz()/2 + 1
-    );
-	cudaErrChk(cudaMalloc3D(&otfLut, otfSize));
+		psf.nz()/2+1
+	);
 
-	fprintf(stderr, "[DEBUG] template OTF workspace created\n");
-
-	// plan and execute FFT
+    // plan and execute FFT
 	cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
         otfSize.width, otfSize.height, otfSize.depth,
@@ -128,94 +113,24 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf) {
     ));
 	cudaErrChk(cufftExecR2C(
         otfFFTHandle,
-        (cufftReal *)dPsf.ptr,      // input
-        (cufftComplex *)otfLut.ptr  // output
+        hPsf,       // input
+        otfTpl.ptr  // output
     ));
+    fprintf(stderr, "[DEBUG] OTF = FFT(PSF)\n");
+    // unpin the PSF memory region
+    cudaErrChk(cudaHostUnregister(psf.data()));
 
-	fprintf(stderr, "[DEBUG] OTF created\n");
+    /*
+     * Copy to cudaArray
+     */
+    // allocate cudaArray for template OTF
+    // copy 3-D data
 
-	// release the cuFFT handle and integer PSF
-	cudaErrChk(cufftDestroy(otfFFTHandle));
-	cudaErrChk(cudaFree(dPsf.ptr));
-
-	// convert to CUDA array
-	cudaArray_t otfLutArray;
-	// cufftComplex is essentially a float2
-	cudaChannelFormatDesc formDesc = cudaCreateChannelDesc(
-		32, 32, 0, 0,
-		cudaChannelFormatKindFloat
-	);
-	// width field in elements
-	otfSize.width = psf.nx();
-	cudaErrChk(cudaMalloc3DArray(
-        &otfLutArray,
-        &formDesc,
-        otfSize,
-        cudaArrayDefault
-	));
-
-	fprintf(stderr, "[DEBUG] OTF template cudaArray allocated\n");
-
-	cudaMemcpy3DParms parms = {0};
-	parms.srcPtr = otfLut;
-	parms.dstArray = otfLutArray;
-	parms.extent = otfSize;
-	parms.kind = cudaMemcpyDeviceToDevice;
-	cudaErrChk(cudaMemcpy3D(&parms));
-
-	// release the template OTF
-	cudaErrChk(cudaFree(otfLut.ptr));
-
-	fprintf(stderr, "[DEBUG] OTF template copied, D2D\n");
-
-	/*
-	 * Interpolate to volume size
-	 */
-	// create texture object
-	cudaResourceDesc resDesc;
-	memset(&resDesc, 0, sizeof(resDesc));
-	resDesc.resType = cudaResourceTypeArray;
-	resDesc.res.array.array = otfLutArray;
-
-	cudaTextureDesc texDesc;
-	memset(&texDesc, 0, sizeof(texDesc));
-	// out-of-border pixels are 0
-	texDesc.addressMode[0] = cudaAddressModeBorder;
-	texDesc.addressMode[1] = cudaAddressModeBorder;
-	texDesc.addressMode[2] = cudaAddressModeBorder;
-	// linear readout
-	texDesc.filterMode = cudaFilterModeLinear;
-	// access by [0, 1]
-	texDesc.normalizedCoords = 1;
-
-	// bind to texture object
-	cudaTextureObject_t otfTex = 0;
-	cudaErrChk(cudaCreateTextureObject(&otfTex, &resDesc, &texDesc, NULL));
-
-	fprintf(stderr, "[DEBUG] template bind to a texture object\n");
-
-	// update OTF size to full volume
-	otfSize.width = pimpl->volumeSize.x * sizeof(cufftComplex);
-	otfSize.height = pimpl->volumeSize.y;
-	otfSize.depth = pimpl->volumeSize.z;
-	// allocate OTF workspace
-	cudaErrChk(cudaMalloc3D(&pimpl->otf, otfSize));
-
-	fprintf(stderr, "[DEBUG] pimpl OTF workspace allocated\n");
-
-	// interpolate
-	//TODO interpolate otfTex using pimpl->voxelRatio onto pimpl->otf
-
-	fprintf(stderr, "[DEBUG] interpolation completed\n");
-
-	/*
-	 * Cleanup
-	 */
-	// release the texture resources
-	cudaErrChk(cudaDestroyTextureObject(otfTex));
-	cudaErrChk(cudaFreeArray(otfLutArray));
-	// unregister the host memory region
-	cudaErrChk(cudaHostUnregister(psf.data()));
+    /*
+     * Interpolate the OTF
+     */
+    // call core routine
+    // free the template OTF
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }

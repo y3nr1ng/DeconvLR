@@ -9,6 +9,13 @@
 
 namespace Kernel {
 
+texture<cufftComplex, 2, cudaReadModeElementType> otfTex;
+
+__host__
+void interpolateOTF() {
+
+}
+
 inline int iDivUp(int a, int b) {
     return (a % b != 0) ? (a / b + 1) : (a / b);
 }
@@ -28,7 +35,9 @@ void convertType(T_out *dst, T_in *src, const cudaExtent size) {
     convertTypeKernel<T_out, T_in><<<32*nSMs, 256>>>(dst, src, size);
 }
 
-// explicit instantiation
+/*
+ * Explicit instantiation
+ */
 template void convertType(cufftReal *dst, uint16_t *src, const cudaExtent size);
 
 }

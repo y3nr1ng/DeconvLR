@@ -56,6 +56,10 @@ public:
         return image;
     }
 
+    void save(const fs::path path_) {
+        //TODO use CImg save_tiff() function
+    }
+
     /*
      * Volume size
      */

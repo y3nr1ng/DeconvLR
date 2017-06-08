@@ -31,6 +31,12 @@ public:
         }
     }
 
+    // type conversion
+    template <typename Q>
+    ImageStack(const ImageStack<Q> &tpl) {
+        image.assign(tpl.object());
+    }
+
     // init image of the same dimension with the default value
     template <typename Q>
     ImageStack(const ImageStack<Q> &tpl, const T value) {

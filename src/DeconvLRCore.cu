@@ -9,6 +9,13 @@
 
 namespace Kernel {
 
+texture<cufftComplex, 2, cudaReadModeElementType> otfTex;
+
+__host__
+void interpolateOTF() {
+
+}
+
 inline int iDivUp(int a, int b) {
     return (a % b != 0) ? (a / b + 1) : (a / b);
 }
@@ -18,8 +25,8 @@ __global__
 void convertTypeKernel(T_out *dst, T_in *src,
                        const int nx, const int ny, const int nz,
                        const size_t pitchDst, const size_t pitchSrc) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; 
-         i < nx * ny * nz; 
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x;
+         i < nx * ny * nz;
          i += blockDim.x * gridDim.x) {
         int z = i / nx / ny;
         int y = (i / nx) % ny;
@@ -45,7 +52,9 @@ void convertType(T_out *dst, T_in *src,
                                                      extDst.width, extSrc.width);
 }
 
-// explicit instantiation
+/*
+ * Explicit instantiation
+ */
 template void convertType(cufftReal *dst, uint16_t *src,
                           const cudaExtent extDst, const cudaExtent extSrc);
 

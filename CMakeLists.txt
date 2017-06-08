@@ -11,9 +11,9 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 file (GLOB SOURCES "${PROJECT_SOURCE_DIR}/src/*")
 
 # boost
-find_package (Boost 1.49.0 COMPONENTS filesystem iostreams REQUIRED)
+find_package (Boost 1.59.0 COMPONENTS filesystem iostreams REQUIRED)
 if (NOT Boost_FOUND)
-    message (FATAL_ERROR "Fatal error: Boost (version >= 1.49) required.")
+    message (FATAL_ERROR "Fatal error: Boost (version >= 1.59) required.")
 else ()
     message (STATUS "Setting up Boost")
     message (STATUS " Includes - ${Boost_INCLUDE_DIRS}")
@@ -31,7 +31,7 @@ if (NOT CUDA_FOUND)
 endif (NOT CUDA_FOUND)
 # configure cuda
 #   compile for baseline of CC 2.0, and archtecture 2.0/3.0
-list (APPEND CUDA_NVCC_FLAGS "-arch=compute_20; -code=sm_20; -code=sm_30; -code=sm_52; -std=c++11")
+list (APPEND CUDA_NVCC_FLAGS "-arch=compute_20; -code=sm_20,sm_30,sm_52; -std=c++11")
 cuda_include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # x11 (debug)

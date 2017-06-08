@@ -111,7 +111,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     cufftHandle otfFFTHandle;
 	cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
-        otfTplExtent.width, otfTplExtent.height, otfTplExtent.depth,
+        otfTplExtent.depth, otfTplExtent.height, otfTplExtent.width,
         CUFFT_R2C
     ));
     fprintf(stderr, "[DEBUG] R2C FFT planned\n");
@@ -123,7 +123,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     fprintf(stderr, "[DEBUG] OTF = FFT(PSF)\n");
     // wait for the FFT to finish
     cudaErrChk(cudaDeviceSynchronize());
-    
+
     // unpin the PSF memory region
     cudaErrChk(cudaHostUnregister(psf.data()));
 

@@ -105,6 +105,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 		psf.nz()/2+1
 	);
     cudaErrChk(cudaMalloc3D(&otfTplLin, otfTplExtent));
+    fprintf(stderr, "[DEBUG] linear array for template OTF created\n");
 
     // plan and execute FFT
     cufftHandle otfFFTHandle;
@@ -113,6 +114,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         otfTplExtent.width, otfTplExtent.height, otfTplExtent.depth,
         CUFFT_R2C
     ));
+    fprintf(stderr, "[DEBUG] R2C FFT planned\n");
 	cudaErrChk(cufftExecR2C(
         otfFFTHandle,
         hPsf,       // input

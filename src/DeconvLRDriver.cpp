@@ -97,14 +97,14 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Create OTF
      */
-    // allocate space for the template OTF
-    cudaPitchedPtr otfTpl;
+    // allocate linear space for the template OTF
+    cudaPitchedPtr otfTplLin;
     cudaExtent otfTplExtent = make_cudaExtent(
 		psf.nx() * sizeof(cufftComplex),   // width in bytes
 		psf.ny(),
 		psf.nz()/2+1
 	);
-    cudaErrChk(cudaMalloc3D(&otfTpl, otfTplExtent));
+    cudaErrChk(cudaMalloc3D(&otfTplLin, otfTplExtent));
 
     // plan and execute FFT
     cufftHandle otfFFTHandle;
@@ -116,7 +116,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	cudaErrChk(cufftExecR2C(
         otfFFTHandle,
         hPsf,       // input
-        (cufftComplex *)otfTpl.ptr  // output
+        (cufftComplex *)otfTplLin.ptr  // output
     ));
     fprintf(stderr, "[DEBUG] OTF = FFT(PSF)\n");
     // unpin the PSF memory region
@@ -126,13 +126,43 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
      * Copy to cudaArray
      */
     // allocate cudaArray for template OTF
+    cudaArray_t otfTpl;
+    // cufftComplex is essentially a float2
+    cudaChannelFormatDesc formDesc = cudaCreateChannelDesc(
+        32, 32, 0, 0,
+        cudaChannelFormatKindFloat
+    );
+	// width field in elements
+	otfTplExtent.width = psf.nx();
+	cudaErrChk(cudaMalloc3DArray(
+        &otfTpl,
+        &formDesc,
+        otfTplExtent,
+        cudaArrayDefault
+	));
+
     // copy 3-D data
+    cudaMemcpy3DParms parms = {0};
+    parms.srcPtr = otfTplLin;
+    parms.dstArray = otfTpl;
+    parms.extent = otfTplExtent;
+    parms.kind = cudaMemcpyDeviceToDevice;
+    cudaErrChk(cudaMemcpy3D(&parms));
+    fprintf(stderr, "[DEBUG] prepare template OTF binding\n");
+
+    // release the linear template OTF
+    cudaErrChk(cudaFree(otfTplLin.ptr));
 
     /*
      * Interpolate the OTF
      */
     // call core routine
+    fprintf(stderr, "[DEBUG] template OTF uploaded as texture\n");
+
+    fprintf(stderr, "[DEBUG] interpolation completed\n");
+
     // free the template OTF
+    fprintf(stderr, "[DEBUG] texture freed\n");
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }

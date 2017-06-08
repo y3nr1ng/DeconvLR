@@ -109,6 +109,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 
     // plan and execute FFT
     cufftHandle otfFFTHandle;
+    // change to element wise
+    otpTplExtent.width = psf.nx();
 	cudaErrChk(cufftPlan3d(
         &otfFFTHandle,
         otfTplExtent.depth, otfTplExtent.height, otfTplExtent.width,

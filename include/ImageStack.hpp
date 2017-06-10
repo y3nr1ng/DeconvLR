@@ -56,8 +56,12 @@ public:
         return image;
     }
 
-    void save(const fs::path path_) {
-        //TODO use CImg save_tiff() function
+    void save() {
+        saveAs(path);
+    }
+
+    void saveAs(const fs::path p) {
+        img.save_tiff(p.c_str());
     }
 
     /*

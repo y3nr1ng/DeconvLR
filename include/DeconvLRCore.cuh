@@ -44,14 +44,14 @@ void release();
 
 namespace OTF {
 
-void bindData() {
-}
+void calculate(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+);
 
-void interpolate() {
-}
+void interpolate();
 
-void release() {
-}
+void release();
 
 }
 

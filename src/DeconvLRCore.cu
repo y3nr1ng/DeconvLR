@@ -224,7 +224,54 @@ namespace OTF {
 cudaArray_t d_otf = nullptr;
 texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 
-void bindData() {
+namespace {
+
+}
+
+void calculate(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // pinned down the host memory region
+    float *d_psf;
+    const size_t nelem = nx * ny * nz;
+    cudaErrChk(cudaHostRegister(
+        h_psf,
+        nelem * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
+
+    // create FFT plan
+    cufftHandle otfHdl;
+    cudaErrChk(cufftPlan3d(
+        &otfHdl,
+        nz, ny, nx,
+        CUFFT_R2C
+    ));
+    // estimate resource requirements
+    size_t wsSz;
+    cudaErrChk(cufftGetSize3d(
+        otfHdl,
+        nz, ny, nx,
+        CUFFT_R2C,
+        &wsSz
+    ));
+    fprintf(stderr, "[DEBUG] PSF -> OTF requires %ld bytes\n", wsSz);
+
+    // allocate device memory to buffer the result
+    cufftComplex *d_otfTpl;
+    cudaErrChk(cudaMalloc(
+        &d_otfTpl,
+        nx * ny * (nz/2+1) * sizeof(cufftComplex)
+    ));
+
+    // begin PSF to OTF
+    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otfTpl));
+
+    // release the resources
+    cudaErrChk(cufftDestroy(otfHdl));
+    cudaErrChk(cudaHostUnregister(h_psf));
 }
 
 void interpolate() {

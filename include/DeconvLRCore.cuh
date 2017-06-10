@@ -22,7 +22,7 @@ float3 findCentroid(
  * Bind host PSF image data for further processing.
  */
 void bindData(
-    const float *h_psf,
+    float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 );
 

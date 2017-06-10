@@ -16,8 +16,9 @@
 
 namespace PSF {
 
-//cudaArray_t d_psf = nullptr;
-//texture<float, 3, cudaReadModeElementType> psfTex;
+// deviated PSF
+cudaArray_t d_psfDev = nullptr;
+texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 namespace {
 __global__
@@ -58,7 +59,6 @@ private:
     const float *d_weight;
     size_t nx, ny, nz;
 };
-}
 
 struct WeightedSum
     : public thrust::binary_function<float4, float4, float4> {
@@ -67,6 +67,7 @@ struct WeightedSum
         return make_float4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
     }
 };
+}
 
 float3 findCentroid(
     float *h_psf,
@@ -90,9 +91,7 @@ float3 findCentroid(
         DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
     );
     createGrid_kernel<<<nblocks, nthreads>>>(d_grid, nx, ny, nz);
-
     cudaErrChk(cudaPeekAtLastError());
-    fprintf(stderr, "[DEBUG] standard grid created\n");
 
     // calculate the centroid along grid points
     float4 result = thrust::transform_reduce(
@@ -102,12 +101,9 @@ float3 findCentroid(
         make_float4(0, 0, 0, 0),
         WeightedSum()
     );
-    fprintf(stderr, "[DEBUG] transform_reduce completed");
 
     float3 centroid = make_float3(
-        result.x/result.w,
-        result.y/result.w,
-        result.z/result.w
+        result.x/result.w, result.y/result.w, result.z/result.w
     );
 
     // release the resources
@@ -118,10 +114,9 @@ float3 findCentroid(
 }
 
 void bindData(
-    const float *h_psf,
+    float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 ) {
-    /*
     // create cudaArray for the texture
     cudaChannelFormatDesc desc = cudaCreateChannelDesc(
         32, 0, 0, 0, cudaChannelFormatKindFloat
@@ -130,7 +125,7 @@ void bindData(
         nx, ny, nz
     );
     cudaErrChk(cudaMalloc3DArray(
-        &d_psf,
+        &d_psfDev,
         &desc,
         extent,
         cudaArrayDefault
@@ -139,23 +134,29 @@ void bindData(
     // copy data from host to device
     cudaMemcpy3DParms parms = {0};
     parms.srcPtr = make_cudaPitchedPtr(
-        (void *)h_psf,
+        h_psf,
         nx * sizeof(float), nx, ny
     );
-    parms.dstArray = d_psf;
+    parms.dstArray = d_psfDev;
     parms.extent = extent;
     parms.kind = cudaMemcpyHostToDevice;
     cudaErrChk(cudaMemcpy3D(&parms));
 
-    // set texture parameter
+    // texture coordinates are not normalized
+    psfTexRef.normalized = false;
+    // sampled data is interpolated
+    psfTexRef.filterMode = cudaFilterModeLinear;
+    // wrap around the texture if exceeds border limit
+    psfTexRef.addressMode[0] = cudaAddressModeWrap;
+    psfTexRef.addressMode[1] = cudaAddressModeWrap;
+    psfTexRef.addressMode[2] = cudaAddressModeWrap;
 
     // bind the texture
     cudaErrChk(cudaBindTextureToArray(
-        psfTex,     // texture to bind
-        d_psf,      // memory array on device
-        &desc       // channel format
+        psfTexRef,  // texture to bind
+        d_psfDev,   // memory array on device
+        desc        // channel format
     ));
-    */
 }
 
 void alignCenter() {
@@ -163,13 +164,11 @@ void alignCenter() {
 }
 
 void release() {
-    /*
-    if (d_psf != nullptr) {
-        cudaErrChk(cudaFreeArray(d_psf));
+    if (d_psfDev != nullptr) {
+        cudaErrChk(cudaFreeArray(d_psfDev));
         // unbind the texture
-        cudaErrChk(cudaUnbindTexture(psfTex));
+        cudaErrChk(cudaUnbindTexture(psfTexRef));
     }
-    */
 }
 
 }
@@ -177,15 +176,6 @@ void release() {
 namespace Kernel {
 
 texture<cufftComplex, 2, cudaReadModeElementType> otfTex;
-
-__host__
-void interpolateOTF() {
-
-}
-
-inline int iDivUp(int a, int b) {
-    return (a % b != 0) ? (a / b + 1) : (a / b);
-}
 
 template <typename T_out, typename T_in>
 __global__

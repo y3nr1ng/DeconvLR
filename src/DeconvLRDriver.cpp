@@ -75,8 +75,6 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
      */
     ImageStack<float> psf(psf_u16);
 
-    // align the PSF
-
     /*
      * Align the PSF to center.
      */
@@ -90,6 +88,18 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         centroid.x, centroid.y, centroid.z
     );
 
+    /*
+     * Shift the PSF around the centroid.
+     */
+    PSF::bindData(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz()
+    );
+    fprintf(stderr, "[DEBUG] deviated PSF binded\n");
+
+    PSF::release();
+    fprintf(stderr, "[DEBUG] PSF texture unbinded\n");
+    
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }
 

@@ -110,13 +110,6 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }
 
-void centerPSF(float *d_psf, const float *h_psf) {
-
-    // find center of the PSF
-    // bind uncentered PSF to texture
-    // retrieve centered PSF
-}
-
 void createOTFTexture() {
 
 }

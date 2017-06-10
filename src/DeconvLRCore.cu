@@ -72,7 +72,7 @@ __global__
 void alignCenter_kernel(
     float *d_odata,
     const size_t nx, const size_t ny, const size_t nz,
-    const float cx, const float cy, const float cz
+    const float ox, const float oy, const float oz
 ) {
     int ix = blockIdx.x*blockDim.x + threadIdx.x;
     int iy = blockIdx.y*blockDim.y + threadIdx.y;
@@ -83,9 +83,10 @@ void alignCenter_kernel(
         return;
     }
 
-    // sample from the texture using corrected coordinates
+    // sampling from the texture
+    // (coordinates are backtracked to the deviated ones)
     int idx = iz * (nx*ny) + iy * nx + ix;
-    d_odata[idx] = tex3D(psfTexRef, ix-cx, iy-cy, iz-cz);
+    d_odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
 }
 }
 
@@ -191,6 +192,8 @@ void alignCenter(
     // offset
     const float3 offset = centroid - center;
 
+    fprintf(stderr, "[DEBUG] offset = (%.2f, %.2f, %.2f)\n", offset.x, offset.y, offset.z);
+
     // pinned down the host memory region
     float *d_psf;
     cudaErrChk(cudaHostRegister(
@@ -208,7 +211,7 @@ void alignCenter(
     alignCenter_kernel<<<nblocks, nthreads>>>(
         d_psf,
         nx, ny, nz,
-        centroid.x, centroid.y, centroid.z
+        offset.x, offset.y, offset.z
     );
     cudaErrChk(cudaPeekAtLastError());
 

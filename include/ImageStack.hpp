@@ -56,6 +56,14 @@ public:
         return image;
     }
 
+    void save() {
+        saveAs(path);
+    }
+
+    void saveAs(const fs::path p) {
+        img.save_tiff(p.c_str());
+    }
+
     /*
      * Volume size
      */

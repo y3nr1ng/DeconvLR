@@ -61,7 +61,7 @@ public:
     }
 
     void saveAs(const fs::path p) {
-        img.save_tiff(p.c_str());
+        image.save_tiff(p.c_str());
     }
 
     /*

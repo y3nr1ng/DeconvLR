@@ -8,6 +8,53 @@
 // standard libraries headers
 // system headers
 
+namespace PSF {
+
+/*
+ * Find center of the PSF data.
+ */
+float3 findCentroid(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
+/*
+ * Bind host PSF image data for further processing.
+ */
+void bindData(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
+/*
+ * Move centroid of the 3-D PSF to center of the volume.
+ */
+ void alignCenter(
+     float *h_psf,
+     const size_t nx, const size_t ny, const size_t nz,
+     const float3 centroid
+ );
+
+/*
+ * Release the resources used by the PSF functions.
+ */
+void release();
+
+}
+
+namespace OTF {
+
+void calculate(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
+void interpolate();
+
+void release();
+
+}
+
 namespace Kernel {
 
 template <typename T_out, typename T_in>

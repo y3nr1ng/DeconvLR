@@ -8,7 +8,6 @@
 #include <cufft.h>
 // standard libraries headers
 #include <exception>
-#include <cmath>
 #include <cstdio>
 // system headers
 
@@ -63,108 +62,62 @@ void DeconvLR::setVolumeSize(
 	pimpl->volumeSize.z = nz;
 }
 
+/*
+ * ===========
+ * PSF AND OTF
+ * ===========
+ */
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	fprintf(stderr, "[DEBUG] --> setPSF()\n");
 
     /*
-     * Convert to float
+     * Ensure we are working with floating points.
      */
-    ImageStack<cufftReal> psf(psf_u16);
-	fprintf(stderr, "[DEBUG] type conversion completed\n");
+    ImageStack<float> psf(psf_u16);
 
-	cufftReal *hPsf;
-	cudaExtent psfExtent = make_cudaExtent(
-		psf.nx() * sizeof(cufftReal),   // width in bytes
-		psf.ny(),
-		psf.nz()
-	);
-
-	/*
-     * Pin the host memory region
-	 */
-	cudaErrChk(cudaHostRegister(
+    /*
+     * Align the PSF to center.
+     */
+    float3 centroid = PSF::findCentroid(
         psf.data(),
-        psfExtent.width * psfExtent.height * psfExtent.depth,
-        cudaHostRegisterMapped
-    ));
-	cudaErrChk(cudaHostGetDevicePointer(
-        &hPsf, 		// device pointer for mapped address
-        psf.data(), // requested host pointer
-        0
-    ));
-	fprintf(stderr, "[DEBUG] host memory pinned\n");
-
-    /*
-     * Create OTF
-     */
-    // allocate linear space for the template OTF
-    cudaPitchedPtr otfTplLin;
-    cudaExtent otfTplExtent = make_cudaExtent(
-		psf.nx() * sizeof(cufftComplex),   // width in bytes
-		psf.ny(),
-		psf.nz()/2+1
-	);
-    cudaErrChk(cudaMalloc3D(&otfTplLin, otfTplExtent));
-
-    // plan and execute FFT
-    cufftHandle otfFFTHandle;
-	cudaErrChk(cufftPlan3d(
-        &otfFFTHandle,
-        otfTplExtent.width, otfTplExtent.height, otfTplExtent.depth,
-        CUFFT_R2C
-    ));
-	cudaErrChk(cufftExecR2C(
-        otfFFTHandle,
-        hPsf,       // input
-        (cufftComplex *)otfTplLin.ptr  // output
-    ));
-    fprintf(stderr, "[DEBUG] OTF = FFT(PSF)\n");
-    // unpin the PSF memory region
-    cudaErrChk(cudaHostUnregister(psf.data()));
-
-    /*
-     * Copy to cudaArray
-     */
-    // allocate cudaArray for template OTF
-    cudaArray_t otfTpl;
-    // cufftComplex is essentially a float2
-    cudaChannelFormatDesc formDesc = cudaCreateChannelDesc(
-        32, 32, 0, 0,
-        cudaChannelFormatKindFloat
+        psf.nx(), psf.ny(), psf.nz()
     );
-	// width field in elements
-	otfTplExtent.width = psf.nx();
-	cudaErrChk(cudaMalloc3DArray(
-        &otfTpl,
-        &formDesc,
-        otfTplExtent,
-        cudaArrayDefault
-	));
-
-    // copy 3-D data
-    cudaMemcpy3DParms parms = {0};
-    parms.srcPtr = otfTplLin;
-    parms.dstArray = otfTpl;
-    parms.extent = otfTplExtent;
-    parms.kind = cudaMemcpyDeviceToDevice;
-    cudaErrChk(cudaMemcpy3D(&parms));
-    fprintf(stderr, "[DEBUG] prepare template OTF binding\n");
-
-    // release the linear template OTF
-    cudaErrChk(cudaFree(otfTplLin.ptr));
+    fprintf(
+        stderr,
+        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
+        centroid.x, centroid.y, centroid.z
+    );
 
     /*
-     * Interpolate the OTF
+     * Shift the PSF around the centroid.
      */
-    // call core routine
-    fprintf(stderr, "[DEBUG] template OTF uploaded as texture\n");
+    PSF::bindData(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz()
+    );
+    PSF::alignCenter(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz(),
+        centroid
+    );
+    fprintf(stderr, "[DEBUG] PSF aligned to center\n");
+    PSF::release();
 
-    fprintf(stderr, "[DEBUG] interpolation completed\n");
-
-    // free the template OTF
-    fprintf(stderr, "[DEBUG] texture freed\n");
+    /*
+     * Generate OTF texture.
+     */
+    OTF::calculate(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz()
+    );
+    
+    psf.saveAs("dump.tif");
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
+}
+
+void createOTFTexture() {
+
 }
 
 void DeconvLR::process(

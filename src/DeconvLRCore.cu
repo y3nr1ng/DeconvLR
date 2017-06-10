@@ -60,14 +60,6 @@ private:
     size_t nx, ny, nz;
 };
 
-struct WeightedSum
-    : public thrust::binary_function<float4, float4, float4> {
-    __host__ __device__
-    float4 operator()(const float4 &a, const float4 &b) const {
-        return make_float4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
-    }
-};
-
 __global__
 void alignCenter_kernel(
     float *d_odata,
@@ -120,7 +112,7 @@ float3 findCentroid(
         d_grid, d_grid + nelem,
         MultiplyWeighting(d_psf, nx, ny, nz),
         make_float4(0, 0, 0, 0),
-        WeightedSum()
+        thrust::plus<float4>()
     );
 
     float3 centroid = make_float3(

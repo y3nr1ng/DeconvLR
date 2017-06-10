@@ -47,9 +47,9 @@ struct MultiplyWeighting
         : d_weight(data), nx(nx_), ny(ny_), nz(nz_) {
     }
 
-    __device__
+    __host__ __device__
     float4 operator()(const int3 &p) const {
-        const int idx = p.z * (nx*ny) + p.y * nx * p.x;
+        const int idx = p.z * (nx*ny) + p.y * nx + p.x;
         const float w = d_weight[idx];
         return make_float4(p.x*w, p.y*w, p.z*w, w);
     }
@@ -62,7 +62,7 @@ private:
 
 struct WeightedSum
     : public thrust::binary_function<float4, float4, float4> {
-    __device__
+    __host__ __device__
     float4 operator()(const float4 &a, const float4 &b) const {
         return make_float4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
     }
@@ -91,6 +91,9 @@ float3 findCentroid(
     );
     createGrid_kernel<<<nblocks, nthreads>>>(d_grid, nx, ny, nz);
 
+    cudaErrChk(cudaPeekAtLastError());
+    fprintf(stderr, "[DEBUG] standard grid created\n");
+
     // calculate the centroid along grid points
     float4 result = thrust::transform_reduce(
         thrust::device,
@@ -99,6 +102,7 @@ float3 findCentroid(
         make_float4(0, 0, 0, 0),
         WeightedSum()
     );
+    fprintf(stderr, "[DEBUG] transform_reduce completed");
 
     float3 centroid = make_float3(
         result.x/result.w,

@@ -105,6 +105,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     PSF::release();
     fprintf(stderr, "[DEBUG] PSF texture unbinded\n");
 
+    psf.saveAs("dump.tif");
+
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }
 

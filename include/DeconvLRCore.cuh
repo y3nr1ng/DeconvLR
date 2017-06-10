@@ -29,7 +29,11 @@ void bindData(
 /*
  * Move centroid of the 3-D PSF to center of the volume.
  */
-void alignCenter();
+ void alignCenter(
+     float *h_psf,
+     const size_t nx, const size_t ny, const size_t nz,
+     const float3 centroid
+ );
 
 /*
  * Release the resources used by the PSF functions.

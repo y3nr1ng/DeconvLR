@@ -67,6 +67,26 @@ struct WeightedSum
         return make_float4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
     }
 };
+
+__global__
+void alignCenter_kernel(
+    float *d_odata,
+    const size_t nx, const size_t ny, const size_t nz,
+    const float cx, const float cy, const float cz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    // sample from the texture using corrected coordinates
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    d_odata[idx] = tex3D(psfTexRef, ix-cx, iy-cy, iz-cz);
+}
 }
 
 float3 findCentroid(
@@ -159,16 +179,47 @@ void bindData(
     ));
 }
 
-void alignCenter() {
+void alignCenter(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz,
+    const float3 centroid
+) {
+    // coordinate of the center of the volume
+    const float3 center = make_float3(
+        (nx-1)/2.0f, (ny-1)/2.0f, (nz-1)/2.0f
+    );
+    // offset
+    const float3 offset = centroid - center;
 
+    // pinned down the host memory region
+    float *d_psf;
+    cudaErrChk(cudaHostRegister(
+        h_psf,
+        nx * ny * nz * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
+
+    // begin resample the kernel
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    alignCenter_kernel<<<nblocks, nthreads>>>(
+        d_psf,
+        nx, ny, nz,
+        centroid.x, centroid.y, centroid.z
+    );
+    cudaErrChk(cudaPeekAtLastError());
+
+    // release the resources
+    cudaErrChk(cudaHostUnregister(h_psf));
 }
 
 void release() {
-    if (d_psfDev != nullptr) {
-        cudaErrChk(cudaFreeArray(d_psfDev));
-        // unbind the texture
-        cudaErrChk(cudaUnbindTexture(psfTexRef));
-    }
+    // unbind the texture
+    cudaErrChk(cudaUnbindTexture(psfTexRef));
+    cudaErrChk(cudaFreeArray(d_psfDev));
 }
 
 }

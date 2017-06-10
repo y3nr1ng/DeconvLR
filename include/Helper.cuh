@@ -3,6 +3,7 @@
 
 // corresponded header file
 // necessary project headers
+#include "HelperMath.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
 #include <cufft.h>

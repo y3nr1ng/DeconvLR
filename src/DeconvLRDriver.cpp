@@ -70,16 +70,25 @@ void DeconvLR::setVolumeSize(
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	fprintf(stderr, "[DEBUG] --> setPSF()\n");
 
-    // type conversion to ensure we are working with float
+    /*
+     * Ensure we are working with floating points.
+     */
     ImageStack<float> psf(psf_u16);
 
-    // upload PSF to device
-    PSF::bindData(
-        h_psf.data(),
+    // align the PSF
+
+    /*
+     * Align the PSF to center.
+     */
+    float3 centroid = PSF::findCentroid(
+        psf.data(),
         psf.nx(), psf.ny(), psf.nz()
     );
-
-    PSF::release();
+    fprintf(
+        stderr,
+        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
+        centroid.x, centroid.y, centroid.z
+    );
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }

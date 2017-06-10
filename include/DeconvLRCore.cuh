@@ -11,6 +11,14 @@
 namespace PSF {
 
 /*
+ * Find center of the PSF data.
+ */
+float3 findCentroid(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
+/*
  * Bind host PSF image data for further processing.
  */
 void bindData(
@@ -19,18 +27,9 @@ void bindData(
 );
 
 /*
- * Find center of the PSF data.
- */
-void findCenter(float *cx, float *cy, float *cz) {
-
-}
-
-/*
  * Move centroid of the 3-D PSF to center of the volume.
  */
-void alignCenter() {
-
-}
+void alignCenter();
 
 /*
  * Release the resources used by the PSF functions.

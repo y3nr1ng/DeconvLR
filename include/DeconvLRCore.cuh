@@ -42,6 +42,19 @@ void release();
 
 }
 
+namespace OTF {
+
+void bindData() {
+}
+
+void interpolate() {
+}
+
+void release() {
+}
+
+}
+
 namespace Kernel {
 
 template <typename T_out, typename T_in>

@@ -95,15 +95,18 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         psf.data(),
         psf.nx(), psf.ny(), psf.nz()
     );
-    fprintf(stderr, "[DEBUG] deviated PSF binded\n");
     PSF::alignCenter(
         psf.data(),
         psf.nx(), psf.ny(), psf.nz(),
         centroid
     );
-    fprintf(stderr, "[DEBUG] PSF aligned\n");
+    fprintf(stderr, "[DEBUG] PSF aligned to center\n");
     PSF::release();
-    fprintf(stderr, "[DEBUG] PSF texture unbinded\n");
+
+    /*
+     * Generate OTF texture.
+     */
+    
 
     psf.saveAs("dump.tif");
 

@@ -219,6 +219,22 @@ void release() {
 
 }
 
+namespace OTF {
+
+cudaArray_t d_otf = nullptr;
+texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
+
+void bindData() {
+}
+
+void interpolate() {
+}
+
+void release() {
+}
+
+}
+
 namespace Kernel {
 
 texture<cufftComplex, 2, cudaReadModeElementType> otfTex;

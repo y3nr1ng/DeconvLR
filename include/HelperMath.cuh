@@ -29,7 +29,7 @@ typedef unsigned int uint;
 typedef unsigned short ushort;
 
 #ifndef __CUDACC__
-#include <math.h>
+#include <cmath>
 
 ////////////////////////////////////////////////////////////////////////////////
 // host implementations of CUDA functions

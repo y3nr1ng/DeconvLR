@@ -16,7 +16,9 @@ struct DeconvLR::Impl {
 
 	}
 	~Impl() {
-
+        if (d_otf) {
+            cudaErrChk(cudaFree(d_otf.ptr));
+        }
 	}
 
 	// volume size
@@ -27,7 +29,7 @@ struct DeconvLR::Impl {
 	/*
 	 * Device pointers
 	 */
-	cudaPitchedPtr otf;
+	cudaPitchedPtr d_otf = {0};
 };
 
 // C++14 feature
@@ -106,18 +108,25 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Generate OTF texture.
      */
-    OTF::calculate(
+    OTF::fromPSF(
         psf.data(),
         psf.nx(), psf.ny(), psf.nz()
     );
-    
-    psf.saveAs("dump.tif");
+    fprintf(stderr, "[DEBUG] template OTF generated\n");
+
+    CImg<float> dump(psf.nx()/2+1, psf.ny(), psf.nz());
+    OTF::dumpTemplate(dump.data(), dump.width(), dump.height(), dump.depth());
+    dump.save_tiff("dump.tif");
+
+    OTF::interpolate(
+        pimpl->d_otf,
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z,
+        psf.nx(), psf.ny(), psf.nz(),
+        pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
+    );
+    OTF::release();
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
-}
-
-void createOTFTexture() {
-
 }
 
 void DeconvLR::process(

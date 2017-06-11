@@ -44,14 +44,24 @@ void release();
 
 namespace OTF {
 
-void calculate(
+void fromPSF(
     float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 );
 
-void interpolate();
+void interpolate(
+    cudaPitchedPtr d_otf,
+    const size_t nx, const size_t ny, const size_t nz,      // full size
+    const size_t ntx, const size_t nty, const size_t ntz,   // template size
+    const float dx, const float dy, const float dz          // voxel ratio
+);
 
 void release();
+
+void dumpTemplate(
+    float *h_otf,
+    const size_t nx, const size_t ny, const size_t nz
+);
 
 }
 

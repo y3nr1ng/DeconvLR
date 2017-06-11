@@ -314,11 +314,6 @@ void interpolate_kernel(
     if (fz > ntz) {
         fz -= ntz;
     }
-ˋ
-    // wrap around
-    if (fz < 0) {
-        fz += ntz;
-    }
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)

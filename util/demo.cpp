@@ -19,10 +19,9 @@ int main(void)
     // scan the folder
     // search and load the otf
     ImageStack<uint16_t> psf(psfFile);
-    //psf.debug();
     // init the deconvlr
     DeconvLR deconvWorker;
-    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);
     // iterate through the images
     //      open the image
     const ImageStack<uint16_t> input(origImgFile);

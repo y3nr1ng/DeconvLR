@@ -16,7 +16,7 @@ struct DeconvLR::Impl {
 
 	}
 	~Impl() {
-        if (d_otf) {
+        if (d_otf.ptr) {
             cudaErrChk(cudaFree(d_otf.ptr));
         }
 	}

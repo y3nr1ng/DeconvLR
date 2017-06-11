@@ -516,14 +516,14 @@ void dumpComplex(
         DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
     );
     magnitude_kernel<<<nblocks, nthreads>>>(
-        d_otfDump,
+        d_odata,
         d_idata,
         nx, ny, nz
     );
     cudaErrChk(cudaPeekAtLastError());
 
     // release the resources
-    cudaErrChk(cudaHostUnregister(h_otf));
+    cudaErrChk(cudaHostUnregister(h_odata));
 }
 
 }

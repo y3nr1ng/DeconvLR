@@ -304,7 +304,17 @@ void interpolate_kernel(
     fx += (ntx-1)/2.0f;
     fy += (nty-1)/2.0f;
     fz += (ntz-1)/2.0f;
-
+    // wrap around if exceeds the size
+    if (fx > ntx) {
+        fx -= ntx;
+    }
+    if (fy > nty) {
+        fy -= nty;
+    }
+    if (fz > ntz) {
+        fz -= ntz;
+    }
+ˋ
     // wrap around
     if (fz < 0) {
         fz += ntz;

@@ -304,6 +304,8 @@ void interpolate_kernel(
     fx += (ntx-1)/2.0f;
     fy += (nty-1)/2.0f;
     fz += (ntz-1)/2.0f;
+    // since the FFT result is symmetric on X
+    fx = (fx < 0) ? -fx : fx;
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)

@@ -305,6 +305,11 @@ void interpolate_kernel(
     fy += (nty-1)/2.0f;
     fz += (ntz-1)/2.0f;
 
+    // wrap around
+    if (fz < 0) {
+        fz += ntz;
+    }
+
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
     int idx = iz * (nx*ny) + iy * nx + ix;

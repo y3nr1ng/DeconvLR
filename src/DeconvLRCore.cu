@@ -4,6 +4,7 @@
 #include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
@@ -21,6 +22,22 @@ cudaArray_t d_psfDev = nullptr;
 texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 namespace {
+struct SubConstant
+    : public thrust::unary_function<float, float> {
+    SubConstant(const float c_)
+        : c(c_) {
+    }
+
+    __host__ __device__
+    float operator()(const float &p) const {
+        float o = p-c;
+        return (o < 0) ? 0 : o;
+    }
+
+private:
+    const float c;
+};
+
 __global__
 void createGrid_kernel(
     int3 *d_grid,
@@ -62,7 +79,7 @@ private:
 
 __global__
 void alignCenter_kernel(
-    float *d_odata,
+    float *odata,
     const size_t nx, const size_t ny, const size_t nz,
     const float ox, const float oy, const float oz
 ) {
@@ -78,8 +95,41 @@ void alignCenter_kernel(
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
     int idx = iz * (nx*ny) + iy * nx + ix;
-    d_odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
+    odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
 }
+}
+
+float estimateBackground(thrust::device_vector<float> &data) {
+    float sum = thrust::reduce(
+        thrust::device,
+        data.begin(), data.end(),
+        0,
+        thrust::plus<float>()
+    );
+    return sum / data.size();
+}
+
+void removeBackground(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // transfer to device
+    const size_t nelem = nx * ny * nz;
+    thrust::device_vector<float> d_psf(h_psf, h_psf+nelem);
+
+    // estimate and remove the background, clamp at [0, +inf)
+    const float bkgLvl = estimateBackground(d_psf);
+    fprintf(stderr, "[DEBUG] background level = %.2f\n", bkgLvl);
+    thrust::transform(
+        d_psf.begin(), d_psf.end(),
+        d_psf.begin(),
+        SubConstant(bkgLvl)
+    );
+
+    // copy back to host
+    thrust::copy(
+        d_psf.begin(), d_psf.end(), h_psf
+    );
 }
 
 float3 findCentroid(
@@ -156,7 +206,7 @@ void bindData(
     cudaErrChk(cudaMemcpy3D(&parms));
 
     // texture coordinates are not normalized
-    psfTexRef.normalized = false;
+    psfTexRef.normalized = false;   //TODO use normalized coordinate
     // sampled data is interpolated
     psfTexRef.filterMode = cudaFilterModeLinear;
     // wrap around the texture if exceeds border limit
@@ -221,23 +271,79 @@ void release() {
 
 namespace OTF {
 
-cudaArray_t d_otf = nullptr;
+// OTF template, used for interpolation
+cudaArray_t d_otfTpl = nullptr;
 texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 
 namespace {
+__global__
+void interpolate_kernel(
+    cufftComplex *odata,
+    const size_t nx, const size_t ny, const size_t nz,      // full size
+    const size_t ntx, const size_t nty, const size_t ntz,   // template size
+    const float dx, const float dy, const float dz          // voxel ratio
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
 
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    // shift to center, (0, N-1) -> (-N/2, N/2+1)
+    float fx = ix - (nx-1)/2.0f;
+    float fy = iy - (ny-1)/2.0f;
+    float fz = iz - (nz-1)/2.0f;
+    // dilate to the coordinate of the template OTF
+    fx *= dx;
+    fy *= dy;
+    fz *= dz;
+    // shift back to origin, (-N/2, N/2+1) -> (0, N-1)
+    fx += (ntx-1)/2.0f;
+    fy += (nty-1)/2.0f;
+    fz += (ntz-1)/2.0f;
+    // since the FFT result is symmetric on X
+    fx = (fx < 0) ? -fx : fx;
+
+    // sampling from the texture
+    // (coordinates are backtracked to the deviated ones)
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    odata[idx] = tex3D(otfTexRef, fx+0.5f, fy+0.5f, fz+0.5f);
 }
 
-void calculate(
+__global__
+void magnitude_kernel(
+    cufftReal *odata,
+    const cufftComplex *idata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    float re = idata[idx].x;
+    float im = idata[idx].y;
+    odata[idx] = std::sqrt(re*re + im*im);
+}
+}
+
+void fromPSF(
     float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 ) {
     // pinned down the host memory region
     float *d_psf;
-    const size_t nelem = nx * ny * nz;
     cudaErrChk(cudaHostRegister(
         h_psf,
-        nelem * sizeof(float),
+        nx * ny * nz * sizeof(float),
         cudaHostRegisterMapped
     ));
     cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
@@ -260,68 +366,166 @@ void calculate(
     fprintf(stderr, "[DEBUG] PSF -> OTF requires %ld bytes\n", wsSz);
 
     // allocate device memory to buffer the result
-    cufftComplex *d_otfTpl;
+    cufftComplex *d_otf;
     cudaErrChk(cudaMalloc(
-        &d_otfTpl,
-        nx * ny * (nz/2+1) * sizeof(cufftComplex)
+        &d_otf,
+        (nx/2+1) * ny * nz * sizeof(cufftComplex)
     ));
 
     // begin PSF to OTF
-    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otfTpl));
+    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
 
-    // release the resources
+    // release resources regarding the PSF
     cudaErrChk(cufftDestroy(otfHdl));
     cudaErrChk(cudaHostUnregister(h_psf));
+
+    // bind OTF to texture as template
+    cudaChannelFormatDesc desc = cudaCreateChannelDesc(
+        32, 32, 0, 0, cudaChannelFormatKindFloat
+    );
+    cudaExtent extent = make_cudaExtent(
+        (nx/2+1), ny, nz
+    );
+    cudaErrChk(cudaMalloc3DArray(
+        &d_otfTpl,
+        &desc,
+        extent,
+        cudaArrayDefault
+    ));
+
+    // copy data from host to device
+    cudaMemcpy3DParms parms = {0};
+    parms.srcPtr = make_cudaPitchedPtr(
+        d_otf,
+        (nx/2+1) * sizeof(cufftComplex), (nx/2+1), ny
+    );
+    parms.dstArray = d_otfTpl;
+    parms.extent = extent;
+    parms.kind = cudaMemcpyDeviceToDevice;
+    cudaErrChk(cudaMemcpy3D(&parms));
+
+    // texture coordinates are not normalized
+    otfTexRef.normalized = false;
+    // sampled data is interpolated
+    otfTexRef.filterMode = cudaFilterModeLinear;
+    // wrap around the texture if exceeds border limit
+    otfTexRef.addressMode[0] = cudaAddressModeBorder;
+    otfTexRef.addressMode[1] = cudaAddressModeBorder;
+    otfTexRef.addressMode[2] = cudaAddressModeBorder;
+
+    // bind the texture
+    cudaErrChk(cudaBindTextureToArray(
+        otfTexRef,  // texture to bind
+        d_otfTpl,   // memory array on device
+        desc        // channel format
+    ));
+
+    // release the resources
+    cudaErrChk(cudaFree(d_otf));
 }
 
-void interpolate() {
+void interpolate(
+    cufftComplex *d_otf,
+    const size_t nx, const size_t ny, const size_t nz,      // full size
+    const size_t ntx, const size_t nty, const size_t ntz,   // template size
+    const float dx, const float dy, const float dz          // voxel ratio
+) {
+    // start the interpolation
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    interpolate_kernel<<<nblocks, nthreads>>>(
+        d_otf,
+        nx, ny, nz,
+        ntx, nty, ntz,
+        dx, dy, dz
+    );
+    cudaErrChk(cudaPeekAtLastError());
 }
 
 void release() {
+    // unbind the texture
+    cudaErrChk(cudaUnbindTexture(otfTexRef));
+    cudaErrChk(cudaFreeArray(d_otfTpl));
 }
 
+void dumpTemplate(
+    float *h_otf,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // pinned down the host memory region
+    float *d_otfDump;
+    cudaErrChk(cudaHostRegister(
+        h_otf,
+        nx * ny * nz * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    cudaErrChk(cudaHostGetDevicePointer(&d_otfDump, h_otf, 0));
+
+    // create linear template OTF buffer space
+    cufftComplex *d_otfLinTpl;
+    cudaErrChk(cudaMalloc(
+        &d_otfLinTpl,
+        nx * ny * nz * sizeof(cufftComplex)
+    ));
+
+    // copy out the template to linear mode
+    cudaMemcpy3DParms parms = {0};
+    parms.srcArray = d_otfTpl;
+    parms.dstPtr = make_cudaPitchedPtr(
+        d_otfLinTpl,
+        nx * sizeof(cufftComplex), (nx/2+1), ny
+    );
+    parms.extent = make_cudaExtent(
+        nx, ny, nz
+    );
+    parms.kind = cudaMemcpyDeviceToDevice;
+    cudaErrChk(cudaMemcpy3D(&parms));
+
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    magnitude_kernel<<<nblocks, nthreads>>>(
+        d_otfDump,
+        d_otfLinTpl,
+        nx, ny, nz
+    );
+    cudaErrChk(cudaPeekAtLastError());
+
+    // release the resources
+    cudaErrChk(cudaFree(d_otfLinTpl));
+    cudaErrChk(cudaHostUnregister(h_otf));
 }
 
-namespace Kernel {
+void dumpComplex(
+    float *h_odata,
+    const cufftComplex *d_idata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // pinned down the host memory region
+    float *d_odata;
+    cudaErrChk(cudaHostRegister(
+        h_odata,
+        nx * ny * nz * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    cudaErrChk(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
 
-texture<cufftComplex, 2, cudaReadModeElementType> otfTex;
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    magnitude_kernel<<<nblocks, nthreads>>>(
+        d_odata,
+        d_idata,
+        nx, ny, nz
+    );
+    cudaErrChk(cudaPeekAtLastError());
 
-template <typename T_out, typename T_in>
-__global__
-void convertTypeKernel(T_out *dst, T_in *src,
-                       const int nx, const int ny, const int nz,
-                       const size_t pitchDst, const size_t pitchSrc) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x;
-         i < nx * ny * nz;
-         i += blockDim.x * gridDim.x) {
-        int z = i / nx / ny;
-        int y = (i / nx) % ny;
-        int x = i % nx;
-        int nPitchSrc = pitchSrc / sizeof(T_in);
-        int nPitchDst = pitchDst / sizeof(T_out);
-        T_in* ptrSrc = src + (z * ny + y) * nPitchSrc + x;
-        T_out* ptrDst = dst + (z * ny + y) * nPitchDst + x;
-        *ptrDst = (T_out)(*ptrSrc);
-    }
+    // release the resources
+    cudaErrChk(cudaHostUnregister(h_odata));
 }
-
-template <typename T_out, typename T_in>
-__host__
-void convertType(T_out *dst, T_in *src,
-                 const cudaExtent extDst, const cudaExtent extSrc) {
-    int nSMs;
-    cudaDeviceGetAttribute(&nSMs, cudaDevAttrMultiProcessorCount, 0);
-    int nx = extSrc.width / sizeof(T_in);
-    int ny = extSrc.height;
-    int nz = extSrc.depth;
-    convertTypeKernel<T_out, T_in><<<32*nSMs, 256>>>(dst, src, nx, ny, nz,
-                                                     extDst.width, extSrc.width);
-}
-
-/*
- * Explicit instantiation
- */
-template void convertType(cufftReal *dst, uint16_t *src,
-                          const cudaExtent extDst, const cudaExtent extSrc);
 
 }

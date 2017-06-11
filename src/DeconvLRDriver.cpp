@@ -16,7 +16,9 @@ struct DeconvLR::Impl {
 
 	}
 	~Impl() {
-
+        if (d_otf != nullptr) {
+            cudaErrChk(cudaFree(d_otf));
+        }
 	}
 
 	// volume size
@@ -27,7 +29,7 @@ struct DeconvLR::Impl {
 	/*
 	 * Device pointers
 	 */
-	cudaPitchedPtr otf;
+	cufftComplex *d_otf = nullptr;
 };
 
 // C++14 feature
@@ -78,6 +80,10 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Align the PSF to center.
      */
+    PSF::removeBackground(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz()
+    );
     float3 centroid = PSF::findCentroid(
         psf.data(),
         psf.nx(), psf.ny(), psf.nz()
@@ -103,21 +109,48 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     fprintf(stderr, "[DEBUG] PSF aligned to center\n");
     PSF::release();
 
+    psf.saveAs("psf_aligned.tif");
+
     /*
      * Generate OTF texture.
      */
-    OTF::calculate(
+    OTF::fromPSF(
         psf.data(),
         psf.nx(), psf.ny(), psf.nz()
     );
-    
-    psf.saveAs("dump.tif");
+    fprintf(stderr, "[DEBUG] template OTF generated\n");
+
+    CImg<float> otfTpl(psf.nx()/2+1, psf.ny(), psf.nz());
+    OTF::dumpTemplate(
+        otfTpl.data(),
+        otfTpl.width(), otfTpl.height(), otfTpl.depth()
+    );
+    otfTpl.save_tiff("otf_template.tif");
+
+    // allocate OTF memory
+    cudaErrChk(cudaMalloc(
+        &pimpl->d_otf,
+        pimpl->volumeSize.x * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
+    ));
+    // start the interpolation
+    OTF::interpolate(
+        pimpl->d_otf,
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z,
+        psf.nx(), psf.ny(), psf.nz(),
+        pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
+    );
+    OTF::release();
+    fprintf(stderr, "[INFO] OTF established\n");
+
+    CImg<float> otfCalc(pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z);
+    OTF::dumpComplex(
+        otfCalc.data(),
+        pimpl->d_otf,
+        otfCalc.width(), otfCalc.height(), otfCalc.depth()
+    );
+    otfCalc.save_tiff("otf_interp.tif");
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
-}
-
-void createOTFTexture() {
-
 }
 
 void DeconvLR::process(

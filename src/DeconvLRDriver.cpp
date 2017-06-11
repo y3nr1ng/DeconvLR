@@ -16,8 +16,8 @@ struct DeconvLR::Impl {
 
 	}
 	~Impl() {
-        if (d_otf.ptr) {
-            cudaErrChk(cudaFree(d_otf.ptr));
+        if (d_otf != nullptr) {
+            cudaErrChk(cudaFree(d_otf));
         }
 	}
 
@@ -29,7 +29,7 @@ struct DeconvLR::Impl {
 	/*
 	 * Device pointers
 	 */
-	cudaPitchedPtr d_otf = {0};
+	cufftComplex *d_otf = nullptr;
 };
 
 // C++14 feature
@@ -80,6 +80,10 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Align the PSF to center.
      */
+    PSF::removeBackground(
+        psf.data(),
+        psf.nx(), psf.ny(), psf.nz()
+    );
     float3 centroid = PSF::findCentroid(
         psf.data(),
         psf.nx(), psf.ny(), psf.nz()
@@ -105,6 +109,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     fprintf(stderr, "[DEBUG] PSF aligned to center\n");
     PSF::release();
 
+    psf.saveAs("aligned.tif");
+
     /*
      * Generate OTF texture.
      */
@@ -118,6 +124,12 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     OTF::dumpTemplate(dump.data(), dump.width(), dump.height(), dump.depth());
     dump.save_tiff("dump.tif");
 
+    // allocate OTF memory
+    cudaErrChk(cudaMalloc(
+        &pimpl->d_otf,
+        pimpl->volumeSize.x * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
+    ));
+    // start the interpolation
     OTF::interpolate(
         pimpl->d_otf,
         pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z,

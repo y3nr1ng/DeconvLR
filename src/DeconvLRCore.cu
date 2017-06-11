@@ -4,6 +4,7 @@
 #include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
@@ -21,6 +22,22 @@ cudaArray_t d_psfDev = nullptr;
 texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 namespace {
+struct SubConstant
+    : public thrust::unary_function<float, float> {
+    SubConstant(const float c_)
+        : c(c_) {
+    }
+
+    __host__ __device__
+    float operator()(const float &p) const {
+        float o = p-c;
+        return (o < 0) ? 0 : o;
+    }
+
+private:
+    const float c;
+};
+
 __global__
 void createGrid_kernel(
     int3 *d_grid,
@@ -80,6 +97,39 @@ void alignCenter_kernel(
     int idx = iz * (nx*ny) + iy * nx + ix;
     odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
 }
+}
+
+float estimateBackground(thrust::device_vector<float> &data) {
+    float sum = thrust::reduce(
+        thrust::device,
+        data.begin(), data.end(),
+        0,
+        thrust::plus<float>()
+    );
+    return sum / data.size();
+}
+
+void removeBackground(
+    float *h_psf,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // transfer to device
+    const size_t nelem = nx * ny * nz;
+    thrust::device_vector<float> d_psf(h_psf, h_psf+nelem);
+
+    // estimate and remove the background, clamp at [0, +inf)
+    const float bkgLvl = estimateBackground(d_psf);
+    fprintf(stderr, "[DEBUG] background level = %.2f\n", bkgLvl);
+    thrust::transform(
+        d_psf.begin(), d_psf.end(),
+        d_psf.begin(),
+        SubConstant(bkgLvl)
+    );
+
+    // copy back to host
+    thrust::copy(
+        d_psf.begin(), d_psf.end(), h_psf
+    );
 }
 
 float3 findCentroid(
@@ -226,6 +276,40 @@ cudaArray_t d_otfTpl = nullptr;
 texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 
 namespace {
+__global__
+void interpolate_kernel(
+    cufftComplex *odata,
+    const size_t nx, const size_t ny, const size_t nz,      // full size
+    const size_t ntx, const size_t nty, const size_t ntz,   // template size
+    const float dx, const float dy, const float dz          // voxel ratio
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    // shift to center, (0, N-1) -> (-N/2, N/2+1)
+    float fx = ix - (nx-1)/2.0f;
+    float fy = iy - (ny-1)/2.0f;
+    float fz = iz - (nz-1)/2.0f;
+    // dilate to the coordinate of the template OTF
+    fx *= dx;
+    fy *= dy;
+    fz *= dz;
+    // shift back to origin, (-N/2, N/2+1) -> (0, N-1)
+    fx += (ntx-1)/2.0f;
+    fy += (nty-1)/2.0f;
+    fz += (ntz-1)/2.0f;
+
+    // sampling from the texture
+    // (coordinates are backtracked to the deviated ones)
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    odata[idx] = tex3D(otfTexRef, fx+0.5f, fy+0.5f, fz+0.5f);
+}
 
 __global__
 void magnitude_kernel(
@@ -339,12 +423,23 @@ void fromPSF(
 }
 
 void interpolate(
-    cudaPitchedPtr d_otf,
+    cufftComplex *d_otf,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
     const float dx, const float dy, const float dz          // voxel ratio
 ) {
-
+    // start the interpolation
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    interpolate_kernel<<<nblocks, nthreads>>>(
+        d_otf,
+        nx, ny, nz,
+        ntx, nty, ntz,
+        dx, dy, dz
+    );
+    cudaErrChk(cudaPeekAtLastError());
 }
 
 void release() {
@@ -395,6 +490,7 @@ void dumpTemplate(
         d_otfLinTpl,
         nx, ny, nz
     );
+    cudaErrChk(cudaPeekAtLastError());
 
     // release the resources
     cudaErrChk(cudaFree(d_otfLinTpl));

@@ -300,9 +300,7 @@ void interpolate_kernel(
     fx *= dx;
     fy *= dy;
     fz *= dz;
-    // since the FFT result is symmetric on X
-    fx = (fx < 0) ? -fx : fx;
-    // shift back to origin, (-N/2, N/2+1) -> (0, N-1)
+    // shift back to origin, (-M/2, M/2+1) -> (0, M-1)
     fx += (ntx-1)/2.0f;
     fy += (nty-1)/2.0f;
     fz += (ntz-1)/2.0f;

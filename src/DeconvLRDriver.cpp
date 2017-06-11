@@ -130,19 +130,19 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
         &pimpl->d_otf,
-        pimpl->volumeSize.x * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
+        (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
     // start the interpolation
     OTF::interpolate(
         pimpl->d_otf,
-        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z,
-        psf.nx(), psf.ny(), psf.nz(),
+        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
+        psf.nx()/2+1, psf.ny(), psf.nz(),
         pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
     );
     OTF::release();
     fprintf(stderr, "[INFO] OTF established\n");
 
-    CImg<float> otfCalc(pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z);
+    CImg<float> otfCalc(pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z);
     OTF::dumpComplex(
         otfCalc.data(),
         pimpl->d_otf,

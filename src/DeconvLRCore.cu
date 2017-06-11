@@ -306,13 +306,13 @@ void interpolate_kernel(
     fz += (ntz-1)/2.0f;
     // wrap around if exceeds the size
     if (fx > ntx) {
-        fx -= ntx;
+        fx = nx - fx;
     }
     if (fy > nty) {
-        fy -= nty;
+        fy = ny - fy;
     }
     if (fz > ntz) {
-        fz -= ntz;
+        fz = nz - fz;
     }
 
     // sampling from the texture

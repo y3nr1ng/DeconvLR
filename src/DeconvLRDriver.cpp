@@ -109,7 +109,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     fprintf(stderr, "[DEBUG] PSF aligned to center\n");
     PSF::release();
 
-    psf.saveAs("aligned.tif");
+    psf.saveAs("psf_aligned.tif");
 
     /*
      * Generate OTF texture.
@@ -120,9 +120,12 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     );
     fprintf(stderr, "[DEBUG] template OTF generated\n");
 
-    CImg<float> dump(psf.nx()/2+1, psf.ny(), psf.nz());
-    OTF::dumpTemplate(dump.data(), dump.width(), dump.height(), dump.depth());
-    dump.save_tiff("dump.tif");
+    CImg<float> otfTpl(psf.nx()/2+1, psf.ny(), psf.nz());
+    OTF::dumpTemplate(
+        otfTpl.data(),
+        otfTpl.width(), otfTpl.height(), otfTpl.depth()
+    );
+    otfTpl.save_tiff("otf_template.tif");
 
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
@@ -137,6 +140,15 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
     );
     OTF::release();
+    fprintf(stderr, "[INFO] OTF established\n");
+
+    CImg<float> otfCalc(pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z);
+    OTF::dumpComplex(
+        otfCalc.data(),
+        pimpl->d_otf,
+        otfCalc.width(), otfCalc.height(), otfCalc.depth()
+    );
+    otfCalc.save_tiff("otf_interp.tif");
 
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }

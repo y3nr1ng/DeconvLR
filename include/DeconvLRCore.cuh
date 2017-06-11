@@ -72,6 +72,12 @@ void dumpTemplate(
     const size_t nx, const size_t ny, const size_t nz
 );
 
+void dumpComplex(
+    float *h_odata,
+    const cufftComplex *d_idata,
+    const size_t nx, const size_t ny, const size_t nz
+);
+
 }
 
 namespace Kernel {

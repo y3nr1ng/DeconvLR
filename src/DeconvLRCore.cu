@@ -497,4 +497,33 @@ void dumpTemplate(
     cudaErrChk(cudaHostUnregister(h_otf));
 }
 
+void dumpComplex(
+    float *h_odata,
+    const cufftComplex *d_idata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    // pinned down the host memory region
+    float *d_odata;
+    cudaErrChk(cudaHostRegister(
+        h_odata,
+        nx * ny * nz * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    cudaErrChk(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
+
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    magnitude_kernel<<<nblocks, nthreads>>>(
+        d_otfDump,
+        d_idata,
+        nx, ny, nz
+    );
+    cudaErrChk(cudaPeekAtLastError());
+
+    // release the resources
+    cudaErrChk(cudaHostUnregister(h_otf));
+}
+
 }

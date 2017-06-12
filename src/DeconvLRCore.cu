@@ -22,6 +22,8 @@ cudaArray_t d_psfDev = nullptr;
 texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 namespace {
+//TODO use template to determine the cutoff
+//TODO rename to signify clamping
 struct SubConstant
     : public thrust::unary_function<float, float> {
     SubConstant(const float c_)
@@ -142,7 +144,7 @@ float3 findCentroid(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     //TODO don't modify the original data
-    
+
     // pinned down the host memory region
     float *d_psf;
     const size_t nelem = nx * ny * nz;
@@ -212,7 +214,6 @@ void bindData(
     parms.kind = cudaMemcpyHostToDevice;
     cudaErrChk(cudaMemcpy3D(&parms));
 
-    // texture coordinates are not normalized
     psfTexRef.normalized = true;
     // sampled data is interpolated
     psfTexRef.filterMode = cudaFilterModeLinear;
@@ -288,7 +289,7 @@ void interpolate_kernel(
     cufftComplex *odata,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz          // voxel ratio
+    const float srx, const float sry, const float srz       // spatial frequency ratio
 ) {
     int ix = blockIdx.x*blockDim.x + threadIdx.x;
     int iy = blockIdx.y*blockDim.y + threadIdx.y;
@@ -299,30 +300,10 @@ void interpolate_kernel(
         return;
     }
 
-    //TODO recalculate the spatial frequency ratio
-
-    // shift to center, (0, N-1) -> (-N/2, N/2+1)
-    float fx = ix - (nx-1)/2.0f;
-    float fy = iy - (ny-1)/2.0f;
-    float fz = iz - (nz-1)/2.0f;
-    // dilate to the coordinate of the template OTF
-    fx *= dx;
-    fy *= dy;
-    fz *= dz;
-    // shift back to origin, (-M/2, M/2+1) -> (0, M-1)
-    fx += (ntx-1)/2.0f;
-    fy += (nty-1)/2.0f;
-    fz += (ntz-1)/2.0f;
-    // wrap around if exceeds the size
-    if (fx > ntx) {
-        fx = nx - fx;
-    }
-    if (fy > nty) {
-        fy = ny - fy;
-    }
-    if (fz > ntz) {
-        fz = nz - fz;
-    }
+    // convert to spatial frequency indices
+    float fx = ix * srx;
+    float fy = iy * sry;
+    float fz = iz * srz;
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
@@ -447,6 +428,11 @@ void interpolate(
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
     const float dx, const float dy, const float dz          // voxel ratio
 ) {
+    // calculate the spatial frequency ratio
+    const float srx = (float)ntx / nx * dx;
+    const float sry = (float)nty / ny * dy;
+    const float srz = (float)ntz / nz * dz;
+
     // start the interpolation
     dim3 nthreads(16, 16, 4);
     dim3 nblocks(
@@ -456,7 +442,7 @@ void interpolate(
         d_otf,
         nx, ny, nz,
         ntx, nty, ntz,
-        dx, dy, dz
+        srx, sry, srz
     );
     cudaErrChk(cudaPeekAtLastError());
 }

@@ -292,6 +292,8 @@ void interpolate_kernel(
         return;
     }
 
+    //TODO recalculate the spatial frequency ratio
+
     // shift to center, (0, N-1) -> (-N/2, N/2+1)
     float fx = ix - (nx-1)/2.0f;
     float fy = iy - (ny-1)/2.0f;

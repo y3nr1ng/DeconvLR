@@ -50,7 +50,20 @@ void DeconvLR::setResolution(
 	const float dx, const float dy, const float dz,
 	const float dpx, const float dpy, const float dpz
 ) {
-	pimpl->voxelRatio = make_float3(dx/dpx, dy/dpy, dz/dpz);
+    /*
+     * Spatial frequency ratio (along one dimension)
+     *
+     *       1/(NS * DS)   NP   DP   NP
+     *   R = ----------- = -- * -- = -- * r
+     *       1/(NP * DP)   NS   DS   NS
+     *
+     *   NS, sample size
+     *   DS, sample voxel size
+     *   NP, PSF size
+     *   DP, PSF voxel size
+     *   r, voxel ratio
+     */
+	pimpl->voxelRatio = make_float3(dpx/dx, dpy/dy, dpz/dz);
 }
 
 void DeconvLR::setVolumeSize(

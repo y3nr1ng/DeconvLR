@@ -285,6 +285,26 @@ texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 
 namespace {
 __global__
+void fftshift3_kernel(
+    cufftComplex *odata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    float flip = 1 - 2*((ix+iy+iz)&1);
+    odata[idx].x *= flip;
+    odata[idx].y *= flip;
+}
+
+__global__
 void interpolate_kernel(
     cufftComplex *odata,
     const size_t nx, const size_t ny, const size_t nz,      // full size
@@ -393,6 +413,16 @@ void fromPSF(
     // release resources regarding the PSF
     cudaErrChk(cufftDestroy(otfHdl));
     cudaErrChk(cudaHostUnregister(h_psf));
+
+    // fftshift
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    fftshift3_kernel<<<nblocks, nthreads>>>(
+        d_otf,
+        nx, ny, nz
+    );
 
     // bind OTF to texture as template
     cudaChannelFormatDesc desc = cudaCreateChannelDesc(

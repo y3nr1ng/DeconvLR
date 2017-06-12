@@ -69,6 +69,7 @@ void DeconvLR::setResolution(
 void DeconvLR::setVolumeSize(
 	const size_t nx, const size_t ny, const size_t nz
 ) {
+    //TODO probe for device specification
 	if (nx > 2048 or ny > 2048 or nz > 2048) {
 		throw std::range_error("volume size exceeds maximum constraints");
 	}

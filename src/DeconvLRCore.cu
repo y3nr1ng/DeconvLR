@@ -304,6 +304,7 @@ void interpolate_kernel(
     float fx = ix * srx;
     float fy = iy * sry;
     float fz = iz * srz;
+    //TODO rework
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)

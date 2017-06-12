@@ -50,7 +50,20 @@ void DeconvLR::setResolution(
 	const float dx, const float dy, const float dz,
 	const float dpx, const float dpy, const float dpz
 ) {
-	pimpl->voxelRatio = make_float3(dx/dpx, dy/dpy, dz/dpz);
+    /*
+     * Spatial frequency ratio (along one dimension)
+     *
+     *       1/(NS * DS)   NP   DP   NP
+     *   R = ----------- = -- * -- = -- * r
+     *       1/(NP * DP)   NS   DS   NS
+     *
+     *   NS, sample size
+     *   DS, sample voxel size
+     *   NP, PSF size
+     *   DP, PSF voxel size
+     *   r, voxel ratio
+     */
+	pimpl->voxelRatio = make_float3(dpx/dx, dpy/dy, dpz/dz);
 }
 
 void DeconvLR::setVolumeSize(
@@ -76,6 +89,11 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
      * Ensure we are working with floating points.
      */
     ImageStack<float> psf(psf_u16);
+    fprintf(
+        stderr,
+        "[INFO] PSF size = %ldx%ldx%ld\n",
+        psf.nx(), psf.ny(), psf.nz()
+    );
 
     /*
      * Align the PSF to center.
@@ -130,19 +148,19 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
         &pimpl->d_otf,
-        pimpl->volumeSize.x * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
+        (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
     // start the interpolation
     OTF::interpolate(
         pimpl->d_otf,
-        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z,
-        psf.nx(), psf.ny(), psf.nz(),
+        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
+        psf.nx()/2+1, psf.ny(), psf.nz(),
         pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
     );
     OTF::release();
     fprintf(stderr, "[INFO] OTF established\n");
 
-    CImg<float> otfCalc(pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z);
+    CImg<float> otfCalc(pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z);
     OTF::dumpComplex(
         otfCalc.data(),
         pimpl->d_otf,

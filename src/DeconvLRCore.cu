@@ -92,10 +92,15 @@ void alignCenter_kernel(
         return;
     }
 
+    // normalized coordinate
+    float fx = (ix+ox+0.5f) / nx;
+    float fy = (iy+oy+0.5f) / ny;
+    float fz = (iz+oz+0.5f) / nz;
+
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
     int idx = iz * (nx*ny) + iy * nx + ix;
-    odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
+    odata[idx] = tex3D(psfTexRef, fx, fy, fz);
 }
 }
 
@@ -136,6 +141,8 @@ float3 findCentroid(
     float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 ) {
+    //TODO don't modify the original data
+    
     // pinned down the host memory region
     float *d_psf;
     const size_t nelem = nx * ny * nz;
@@ -206,7 +213,7 @@ void bindData(
     cudaErrChk(cudaMemcpy3D(&parms));
 
     // texture coordinates are not normalized
-    psfTexRef.normalized = false;   //TODO use normalized coordinate
+    psfTexRef.normalized = true;
     // sampled data is interpolated
     psfTexRef.filterMode = cudaFilterModeLinear;
     // wrap around the texture if exceeds border limit
@@ -292,6 +299,8 @@ void interpolate_kernel(
         return;
     }
 
+    //TODO recalculate the spatial frequency ratio
+
     // shift to center, (0, N-1) -> (-N/2, N/2+1)
     float fx = ix - (nx-1)/2.0f;
     float fy = iy - (ny-1)/2.0f;
@@ -300,12 +309,20 @@ void interpolate_kernel(
     fx *= dx;
     fy *= dy;
     fz *= dz;
-    // shift back to origin, (-N/2, N/2+1) -> (0, N-1)
+    // shift back to origin, (-M/2, M/2+1) -> (0, M-1)
     fx += (ntx-1)/2.0f;
     fy += (nty-1)/2.0f;
     fz += (ntz-1)/2.0f;
-    // since the FFT result is symmetric on X
-    fx = (fx < 0) ? -fx : fx;
+    // wrap around if exceeds the size
+    if (fx > ntx) {
+        fx = nx - fx;
+    }
+    if (fy > nty) {
+        fy = ny - fy;
+    }
+    if (fz > ntz) {
+        fz = nz - fz;
+    }
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)

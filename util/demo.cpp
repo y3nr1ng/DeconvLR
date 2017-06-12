@@ -12,16 +12,16 @@ int main(void)
 {
     TIFFSetWarningHandler(NULL);
 
-    std::string origImgFile = "data/bead/sample.tif";
+    std::string origImgFile = "data/bigradient/sample.tif";
     //std::string psfFile = "data/centroid/centroid_matlab_x20_y40_z80.tif";
-    std::string psfFile = "data/bead/psf.tif";
+    std::string psfFile = "data/bigradient/psf.tif";
 
     // scan the folder
     // search and load the otf
     ImageStack<uint16_t> psf(psfFile);
     // init the deconvlr
     DeconvLR deconvWorker;
-    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     // iterate through the images
     //      open the image
     const ImageStack<uint16_t> input(origImgFile);

@@ -89,6 +89,11 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
      * Ensure we are working with floating points.
      */
     ImageStack<float> psf(psf_u16);
+    fprintf(
+        stderr,
+        "[INFO] PSF size = %ldx%ldx%ld\n",
+        psf.nx(), psf.ny(), psf.nz()
+    );
 
     /*
      * Align the PSF to center.

@@ -92,10 +92,15 @@ void alignCenter_kernel(
         return;
     }
 
+    // normalized coordinate
+    float fx = (ix+ox) / nx;
+    float fy = (iy+oy) / ny;
+    float fz = (iz+oz) / nz;
+
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
     int idx = iz * (nx*ny) + iy * nx + ix;
-    odata[idx] = tex3D(psfTexRef, ix+ox+0.5f, iy+oy+0.5f, iz+oz+0.5f);
+    odata[idx] = tex3D(psfTexRef, fx, fy, fz);
 }
 }
 
@@ -206,7 +211,7 @@ void bindData(
     cudaErrChk(cudaMemcpy3D(&parms));
 
     // texture coordinates are not normalized
-    psfTexRef.normalized = false;   //TODO use normalized coordinate
+    psfTexRef.normalized = true;
     // sampled data is interpolated
     psfTexRef.filterMode = cudaFilterModeLinear;
     // wrap around the texture if exceeds border limit

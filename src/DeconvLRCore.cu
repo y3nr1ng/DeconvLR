@@ -289,8 +289,10 @@ void interpolate_kernel(
     cufftComplex *odata,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float srx, const float sry, const float srz       // spatial frequency ratio
+    const float dx, const float dy, const float dz,
+    const float dtx, const float dty, const float dtz
 ) {
+    // index
     int ix = blockIdx.x*blockDim.x + threadIdx.x;
     int iy = blockIdx.y*blockDim.y + threadIdx.y;
     int iz = blockIdx.z*blockDim.z + threadIdx.z;
@@ -300,11 +302,25 @@ void interpolate_kernel(
         return;
     }
 
-    // convert to spatial frequency indices
-    float fx = ix * srx;
-    float fy = iy * sry;
-    float fz = iz * srz;
-    //TODO rework
+    // convert to spatial frequency
+    float fx = ix / (nx*dx);
+    float fy = iy / (ny*dy);
+    float fz = iz / (nz*dz);
+    // wrap if half if greater than half
+    //if (fx > 1/(2*dx)) {
+    //    fx = (nx-ix) / (nx*dx);
+    //}
+    if (fy > 1/(2*dy)) {
+        fy = (ny-iy) / (ny*dy);
+    }
+    if (fz > 1/(2*dz)) {
+        fz = (nz-iz) / (nz*dz);
+    }
+
+    // convert to index in the templated OTF
+    fx *= ntx*dtx;
+    fy *= nty*dty;
+    fz *= ntz*dtz;
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
@@ -427,13 +443,9 @@ void interpolate(
     cufftComplex *d_otf,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz          // voxel ratio
+    const float dx, const float dy, const float dz,
+    const float dtx, const float dty, const float dtz
 ) {
-    // calculate the spatial frequency ratio
-    const float srx = (float)ntx / nx * dx;
-    const float sry = (float)nty / ny * dy;
-    const float srz = (float)ntz / nz * dz;
-
     // start the interpolation
     dim3 nthreads(16, 16, 4);
     dim3 nblocks(
@@ -443,7 +455,8 @@ void interpolate(
         d_otf,
         nx, ny, nz,
         ntx, nty, ntz,
-        srx, sry, srz
+        dx, dy, dz,
+        dtx, dty, dtz
     );
     cudaErrChk(cudaPeekAtLastError());
 }

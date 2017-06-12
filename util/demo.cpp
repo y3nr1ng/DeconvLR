@@ -21,7 +21,7 @@ int main(void)
     ImageStack<uint16_t> psf(psfFile);
     // init the deconvlr
     DeconvLR deconvWorker;
-    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     // iterate through the images
     //      open the image
     const ImageStack<uint16_t> input(origImgFile);

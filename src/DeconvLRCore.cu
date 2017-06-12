@@ -93,9 +93,9 @@ void alignCenter_kernel(
     }
 
     // normalized coordinate
-    float fx = (ix+ox) / nx;
-    float fy = (iy+oy) / ny;
-    float fz = (iz+oz) / nz;
+    float fx = (ix+ox+0.5f) / nx;
+    float fy = (iy+oy+0.5f) / ny;
+    float fz = (iz+oz+0.5f) / nz;
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
@@ -141,6 +141,8 @@ float3 findCentroid(
     float *h_psf,
     const size_t nx, const size_t ny, const size_t nz
 ) {
+    //TODO don't modify the original data
+    
     // pinned down the host memory region
     float *d_psf;
     const size_t nelem = nx * ny * nz;

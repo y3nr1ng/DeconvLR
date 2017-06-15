@@ -597,16 +597,38 @@ namespace Core {
 
 namespace RL {
 
+/**
+ * Parameter class that holds all constant and temporary variables during the
+ * Richardson-Lucy iteration steps.
+ */
 struct Parameters {
+    /**
+     *  The original image.
+     */
     float *raw;
+
+    /**
+     * Converted OTF, not conjugated.
+     */
     float *otf;
+
+    /**
+     * Dimension of the image in real space.
+     */
     size_t nx, ny, nz;
 
+    /**
+     * cuFFT handles for forward (R2C) and reverse (C2R) FFT operations.
+     */
     struct {
         cufftHandle forward;
         cufftHandle reverse;
     } fftHandle;
 
+    /**
+     * Intermediate buffers, maximum size is used - whether it is the padded
+     * cufftComplex array or the full-sized cufftReal array.
+     */
     InPlaceType bufferA, bufferB;
 };
 

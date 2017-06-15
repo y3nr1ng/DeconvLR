@@ -21,6 +21,9 @@ public:
     void setVolumeSize(const size_t nx, const size_t ny, const size_t nz);
     void setPSF(const ImageStack<uint16_t> &psf);
 
+    // allocate host and device resources
+    void initialize();
+    // start the RL core routines
     void process(
         ImageStack<uint16_t> &output,
         const ImageStack<uint16_t> &input

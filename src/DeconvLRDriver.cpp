@@ -191,6 +191,10 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 	fprintf(stderr, "[DEBUG] setPSF() -->\n");
 }
 
+void DeconvLR::initialize() {
+    
+}
+
 void DeconvLR::process(
 	ImageStack<uint16_t> &odata_u16,
 	const ImageStack<uint16_t> &idata_u16
@@ -199,20 +203,31 @@ void DeconvLR::process(
      * Ensure we are working with floating points.
      */
     ImageStack<float> idata(idata_u16);
+    dim3 volumeSize = pimpl->volumeSize;
 
     /*
-     * Create FFT plans.
+     * Create FFT plans if not exists.
      */
      // FFT plans for estimation
      cudaErrChk(cufftPlan3d(
          &pimpl->est_fft,
-         nz, ny, nx,
+         volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_R2C
      ));
      cudaErrChk(cufftPlan3d(
          &pimpl->est_ifft,
-         nz, ny, nx,
+         volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_C2R
      ));
      // FFT plans for error
+     cudaErrChk(cufftPlan3d(
+         &pimpl->err_fft,
+         volumeSize.z, volumeSize.y, volumeSize.x,
+         CUFFT_R2C
+     ));
+     cudaErrChk(cufftPlan3d(
+         &pimpl->err_ifft,
+         volumeSize.z, volumeSize.y, volumeSize.x,
+         CUFFT_C2R
+     ));
 }

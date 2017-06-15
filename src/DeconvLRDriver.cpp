@@ -29,6 +29,11 @@ struct DeconvLR::Impl {
         float3 psf;
     } voxelSize;
 
+    /*
+     * Algorithm configurations.
+     */
+    int iterations;
+
 	/*
 	 * Device pointers
 	 */
@@ -192,19 +197,6 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 }
 
 void DeconvLR::initialize() {
-    
-}
-
-void DeconvLR::process(
-	ImageStack<uint16_t> &odata_u16,
-	const ImageStack<uint16_t> &idata_u16
-) {
-    /*
-     * Ensure we are working with floating points.
-     */
-    ImageStack<float> idata(idata_u16);
-    dim3 volumeSize = pimpl->volumeSize;
-
     /*
      * Create FFT plans if not exists.
      */
@@ -230,4 +222,35 @@ void DeconvLR::process(
          volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_C2R
      ));
+
+     //TODO attach callback device functions
+
+     /*
+      * Estimate memory usage from FFT procedures.
+      */
+
+     /*
+      * Allocate host and device staging area.
+      */
+}
+
+void DeconvLR::process(
+	ImageStack<uint16_t> &odata_u16,
+	const ImageStack<uint16_t> &idata_u16
+) {
+    /*
+     * Ensure we are working with floating points.
+     */
+    ImageStack<float> idata(idata_u16);
+    dim3 volumeSize = pimpl->volumeSize;
+
+    const int nIter = pimpl->iterations;
+    for (int iIter = 0: i < nIter; i++) {
+        //    est_conv      = conv2(latent_est,PSF,'same');
+        //    relative_blur = image./est_conv;
+        //    error_est     = conv2(relative_blur,PSF_HAT,'same');
+        //    latent_est    = latent_est.* error_est;
+    }
+    // copy back to host
+    //result = latent_est;
 }

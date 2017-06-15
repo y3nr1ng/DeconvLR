@@ -577,3 +577,29 @@ void dumpComplex(
 }
 
 }
+
+namespace Core {
+
+enum FilterType {
+    NON_CONJUGATE = 1, CONJUGATE
+};
+
+template<FilterType type>
+__global__
+void filter_kernel(FilterType type) {
+
+}
+
+template <>
+__global__
+void filter_kernel<NON_CONJUGATE>(Filter type) {
+
+}
+
+template <>
+__global__
+void filter_kernel<CONJUGATE>(Filter type) {
+
+}
+
+}

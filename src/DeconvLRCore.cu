@@ -286,7 +286,7 @@ texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 namespace {
 __global__
 void fftshift3_kernel(
-    cufftComplex *odata,
+    cufftReal *odata,
     const size_t nx, const size_t ny, const size_t nz
 ) {
     int ix = blockIdx.x*blockDim.x + threadIdx.x;
@@ -299,9 +299,8 @@ void fftshift3_kernel(
     }
 
     int idx = iz * (nx*ny) + iy * nx + ix;
-    float flip = 1 - 2*((ix+iy+iz)&1);
-    odata[idx].x *= flip;
-    odata[idx].y *= flip;
+    float flip = 1 - 2*(~(((ix+iy)&1) ^ (iz&1)));
+    odata[idx] *= flip;
 }
 
 __global__
@@ -407,22 +406,24 @@ void fromPSF(
         (nx/2+1) * ny * nz * sizeof(cufftComplex)
     ));
 
-    // begin PSF to OTF
-    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
-
-    // release resources regarding the PSF
-    cudaErrChk(cufftDestroy(otfHdl));
-    cudaErrChk(cudaHostUnregister(h_psf));
-
+    /*
     // fftshift
     dim3 nthreads(16, 16, 4);
     dim3 nblocks(
         DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
     );
     fftshift3_kernel<<<nblocks, nthreads>>>(
-        d_otf,
+        d_psf,
         nx, ny, nz
     );
+    */
+
+    // begin PSF to OTF
+    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
+
+    // release resources regarding the PSF
+    cudaErrChk(cufftDestroy(otfHdl));
+    cudaErrChk(cudaHostUnregister(h_psf));
 
     // bind OTF to texture as template
     cudaChannelFormatDesc desc = cudaCreateChannelDesc(

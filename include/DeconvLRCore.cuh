@@ -83,6 +83,12 @@ void dumpComplex(
 
 namespace Core {
 
+// Note: buffers must be able to handle in-place FFT transform
+union InPlaceType {
+    cufftReal *real;
+    cufftComplex *complex;
+};
+
 namespace RL {
 
 /**

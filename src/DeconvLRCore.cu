@@ -22,6 +22,8 @@ cudaArray_t d_psfDev = nullptr;
 texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 namespace {
+//TODO use template to determine the cutoff
+//TODO rename to signify clamping
 struct SubConstant
     : public thrust::unary_function<float, float> {
     SubConstant(const float c_)
@@ -142,7 +144,7 @@ float3 findCentroid(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     //TODO don't modify the original data
-    
+
     // pinned down the host memory region
     float *d_psf;
     const size_t nelem = nx * ny * nz;
@@ -212,7 +214,6 @@ void bindData(
     parms.kind = cudaMemcpyHostToDevice;
     cudaErrChk(cudaMemcpy3D(&parms));
 
-    // texture coordinates are not normalized
     psfTexRef.normalized = true;
     // sampled data is interpolated
     psfTexRef.filterMode = cudaFilterModeLinear;
@@ -284,11 +285,9 @@ texture<cufftComplex, cudaTextureType3D, cudaReadModeElementType> otfTexRef;
 
 namespace {
 __global__
-void interpolate_kernel(
-    cufftComplex *odata,
-    const size_t nx, const size_t ny, const size_t nz,      // full size
-    const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz          // voxel ratio
+void fftshift3_kernel(
+    cufftReal *odata,
+    const size_t nx, const size_t ny, const size_t nz
 ) {
     int ix = blockIdx.x*blockDim.x + threadIdx.x;
     int iy = blockIdx.y*blockDim.y + threadIdx.y;
@@ -299,30 +298,48 @@ void interpolate_kernel(
         return;
     }
 
-    //TODO recalculate the spatial frequency ratio
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    float flip = 1 - 2*(~(((ix+iy)&1) ^ (iz&1)));
+    odata[idx] *= flip;
+}
 
-    // shift to center, (0, N-1) -> (-N/2, N/2+1)
-    float fx = ix - (nx-1)/2.0f;
-    float fy = iy - (ny-1)/2.0f;
-    float fz = iz - (nz-1)/2.0f;
-    // dilate to the coordinate of the template OTF
-    fx *= dx;
-    fy *= dy;
-    fz *= dz;
-    // shift back to origin, (-M/2, M/2+1) -> (0, M-1)
-    fx += (ntx-1)/2.0f;
-    fy += (nty-1)/2.0f;
-    fz += (ntz-1)/2.0f;
-    // wrap around if exceeds the size
-    if (fx > ntx) {
-        fx = nx - fx;
+__global__
+void interpolate_kernel(
+    cufftComplex *odata,
+    const size_t nx, const size_t ny, const size_t nz,      // full size
+    const size_t ntx, const size_t nty, const size_t ntz,   // template size
+    const float dx, const float dy, const float dz,
+    const float dtx, const float dty, const float dtz
+) {
+    // index
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
     }
-    if (fy > nty) {
-        fy = ny - fy;
+
+    // convert to spatial frequency
+    float fx = ix / (nx*dx);
+    float fy = iy / (ny*dy);
+    float fz = iz / (nz*dz);
+    // wrap if half if greater than half
+    //if (fx > 1/(2*dx)) {
+    //    fx = (nx-ix) / (nx*dx);
+    //}
+    if (fy > 1/(2*dy)) {
+        fy = (ny-iy) / (ny*dy);
     }
-    if (fz > ntz) {
-        fz = nz - fz;
+    if (fz > 1/(2*dz)) {
+        fz = (nz-iz) / (nz*dz);
     }
+
+    // convert to index in the templated OTF
+    fx *= ntx*dtx;
+    fy *= nty*dty;
+    fz *= ntz*dtz;
 
     // sampling from the texture
     // (coordinates are backtracked to the deviated ones)
@@ -389,6 +406,18 @@ void fromPSF(
         (nx/2+1) * ny * nz * sizeof(cufftComplex)
     ));
 
+    /*
+    // fftshift
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    fftshift3_kernel<<<nblocks, nthreads>>>(
+        d_psf,
+        nx, ny, nz
+    );
+    */
+
     // begin PSF to OTF
     cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
 
@@ -445,7 +474,8 @@ void interpolate(
     cufftComplex *d_otf,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz          // voxel ratio
+    const float dx, const float dy, const float dz,
+    const float dtx, const float dty, const float dtz
 ) {
     // start the interpolation
     dim3 nthreads(16, 16, 4);
@@ -456,7 +486,8 @@ void interpolate(
         d_otf,
         nx, ny, nz,
         ntx, nty, ntz,
-        dx, dy, dz
+        dx, dy, dz,
+        dtx, dty, dtz
     );
     cudaErrChk(cudaPeekAtLastError());
 }

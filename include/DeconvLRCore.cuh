@@ -62,7 +62,8 @@ void interpolate(
     cufftComplex *d_otf,
     const size_t nx, const size_t ny, const size_t nz,      // full size
     const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz          // voxel ratio
+    const float dx, const float dy, const float dz,
+    const float dtx, const float dty, const float dtz
 );
 
 void release();

@@ -23,8 +23,11 @@ struct DeconvLR::Impl {
 
 	// volume size
 	dim3 volumeSize;
-	// voxel ratio = raw voxel size / PSF voxel size
-	float3 voxelRatio;
+    // voxel size
+    struct {
+        float3 raw;
+        float3 psf;
+    } voxelSize;
 
 	/*
 	 * Device pointers
@@ -63,12 +66,14 @@ void DeconvLR::setResolution(
      *   DP, PSF voxel size
      *   r, voxel ratio
      */
-	pimpl->voxelRatio = make_float3(dpx/dx, dpy/dy, dpz/dz);
+    pimpl->voxelSize.raw = make_float3(dx, dy, dz);
+    pimpl->voxelSize.psf = make_float3(dpx, dpy, dpz);
 }
 
 void DeconvLR::setVolumeSize(
 	const size_t nx, const size_t ny, const size_t nz
 ) {
+    //TODO probe for device specification
 	if (nx > 2048 or ny > 2048 or nz > 2048) {
 		throw std::range_error("volume size exceeds maximum constraints");
 	}
@@ -155,7 +160,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         pimpl->d_otf,
         pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
         psf.nx()/2+1, psf.ny(), psf.nz(),
-        pimpl->voxelRatio.x, pimpl->voxelRatio.y, pimpl->voxelRatio.z
+        pimpl->voxelSize.raw.x, pimpl->voxelSize.raw.y, pimpl->voxelSize.raw.z,
+        pimpl->voxelSize.psf.x, pimpl->voxelSize.psf.y, pimpl->voxelSize.psf.z
     );
     OTF::release();
     fprintf(stderr, "[INFO] OTF established\n");

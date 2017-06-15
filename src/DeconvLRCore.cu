@@ -589,6 +589,11 @@ namespace Core {
  * @see FUNCTION
  */
 
+ // Note: buffers must be able to handle in-place FFT transform
+ union InPlaceType {
+     cufftReal *real;
+     cufftComplex *complex;
+ };
 
 namespace RL {
 
@@ -597,14 +602,12 @@ struct Parameters {
     float *otf;
     size_t nx, ny, nz;
 
-    // Note: buffers must be able to handle in-place FFT transform
-    float *bufferA;
-    float *bufferB;
-
     struct {
         cufftHandle forward;
         cufftHandle reverse;
     } fftHandle;
+
+    InPlaceType bufferA, bufferB;
 };
 
 namespace {
@@ -628,11 +631,21 @@ void multiplyAndScaling_kernel() {
 }
 
 void convolve(
-    float *odata, const float *idata,
+    float *odata, const float *idataA, const float *idataB,
     Core::RL::Parameters &parm
 ) {
+    cufftComplex *bufferA = parm.bufferA.complex;
+    cufftComplex *bufferB = parm.bufferB.complex;
+
     // convert to frequency space
-    cudaErrChk(cufftExecR2C(handle, real, complex));
+    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, bufferA));
+    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataB, bufferB));
+
+    // element-wise multiplication and scale down
+    multiplyAndScaling_kernel<<<32, 256>>>(d_signal, d_filter_kernel, new_size, 1.0f / new_size);
+
+    // convert back to real space
+    cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, bufferA, odata));
 }
 
 }

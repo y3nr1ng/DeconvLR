@@ -593,9 +593,13 @@ namespace Core {
 namespace RL {
 
 struct Parameters {
-    float raw;
-    float otf;
+    float *raw;
+    float *otf;
     size_t nx, ny, nz;
+
+    // Note: buffers must be able to handle in-place FFT transform
+    float *bufferA;
+    float *bufferB;
 
     struct {
         cufftHandle forward;
@@ -605,23 +609,62 @@ struct Parameters {
 
 namespace {
 
+__global__
+void divide_kernel(
+    float *odata, const float *idata,
+    const size_t nx, const sizt_t,
+) {
+
 }
 
- /**
-  * @brief One iteration in the Richardson-Lucy algorithm.
-  *
-  * DESCRIPTION
-  * @param odata Result from current iteration.
-  * @param idata Result of previous iteration.
-  * @param parm Algorithm related parameters.
-  * @return
-  * @see
-  */
+__global__
+void multiply_kernel() {
+
+}
+
+__global__
+void multiplyAndScaling_kernel() {
+
+}
+
+void convolve(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+) {
+    // convert to frequency space
+    cudaErrChk(cufftExecR2C(handle, real, complex));
+}
+
+}
+
+/**
+ * @brief One iteration in the Richardson-Lucy algorithm.
+ *
+ * DESCRIPTION
+ * @param odata Result from current iteration.
+ * @param idata Result of previous iteration.
+ * @param parm Algorithm related parameters.
+ * @return
+ * @see
+ */
 void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
-    //TODO flip the fucking OTF
+    /*
+     * \hat{f_{k+1}} =
+     *     \hat{f_k} \left(
+     *         h \ast \frac{g}{h \otimes \hat{f_k}}
+     *     \right)
+     */
+
+    // reblur the image
+    T = convolve(otf, idata);
+    // error
+    T = raw ./ T;
+    T = convolve(T, otf, CONJUGATE);
+    // latent image
+    odata = idata * T;
 }
 
 }

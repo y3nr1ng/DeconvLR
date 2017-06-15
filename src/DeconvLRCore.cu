@@ -580,31 +580,9 @@ void dumpComplex(
 
 namespace Core {
 
-/**
- * @brief Brief introduction to the function.
- *
- * Description of what the function does
- * @param PARAM1 Description of the first parameter of the function.
- * @return Describe what the function returns.
- * @see FUNCTION
- */
-
 namespace RL {
 
 namespace {
-
-__global__
-void divide_kernel(
-    float *odata, const float *idata,
-    const size_t nx, const sizt_t,
-) {
-
-}
-
-__global__
-void multiply_kernel() {
-
-}
 
 __global__
 void multiplyAndScaling_kernel() {
@@ -623,6 +601,7 @@ void convolve(
     cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataB, bufferB));
 
     // element-wise multiplication and scale down
+    //TODO use SAXPY functor to do the dirty work
     multiplyAndScaling_kernel<<<32, 256>>>(d_signal, d_filter_kernel, new_size, 1.0f / new_size);
 
     // convert back to real space
@@ -631,16 +610,6 @@ void convolve(
 
 }
 
-/**
- * @brief One iteration in the Richardson-Lucy algorithm.
- *
- * DESCRIPTION
- * @param odata Result from current iteration.
- * @param idata Result of previous iteration.
- * @param parm Algorithm related parameters.
- * @return
- * @see
- */
 void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parm
@@ -659,6 +628,28 @@ void step(
     T = convolve(T, otf, CONJUGATE);
     // latent image
     odata = idata * T;
+}
+
+}
+
+namespace Biggs {
+
+namespace {
+
+}
+
+void step(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+) {
+    // execute an iteration of RL
+    RL::step();
+
+    // find the update direction
+
+    // calculate acceleration factor
+
+    // re-estimate prediction
 }
 
 }

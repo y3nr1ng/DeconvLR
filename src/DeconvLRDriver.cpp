@@ -249,19 +249,13 @@ void DeconvLR::process(
      */
     ImageStack<float> idata(idata_u16);
 
+    /*
+     * Execute the core functions.
+     */
     const int nIter = pimpl->iterations;
     for (int iIter = 0: i < nIter; i++) {
-        // x_k
-        // h_k
-        // g_{k-1} = x_k - y_{k-1}
-        // alpha (acceleration factor)
-        // y_k
-
-        //    est_conv      = conv2(latent_est,PSF,'same');
-        //    relative_blur = image./est_conv;
-        //    error_est     = conv2(relative_blur,PSF_HAT,'same');
-        //    latent_est    = latent_est.* error_est;
+        Core::Biggs::step();
     }
-    // copy back to host
-    //result = latent_est;
+    // copy back the data
+
 }

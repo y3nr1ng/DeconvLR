@@ -83,6 +83,15 @@ void dumpComplex(
 
 namespace Core {
 
+/**
+ * @brief Brief introduction to the function.
+ *
+ * Description of what the function does
+ * @param PARAM1 Description of the first parameter of the function.
+ * @return Describe what the function returns.
+ * @see FUNCTION
+ */
+
 // Note: buffers must be able to handle in-place FFT transform
 union InPlaceType {
     cufftReal *real;
@@ -126,9 +135,39 @@ struct Parameters {
     InPlaceType bufferA, bufferB;
 };
 
+/**
+ * @brief One iteration in the Richardson-Lucy algorithm.
+ *
+ * DESCRIPTION
+ * @param odata Result from current iteration.
+ * @param idata Result of previous iteration.
+ * @param parm Algorithm related parameters.
+ * @return
+ * @see
+ */
+void step(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+);
+
 }
 
 namespace Biggs {
+
+/**
+ * @brief One iteration in the accelerated Richardson-Lucy algorithm.
+ *
+ * DESCRIPTION
+ * @param odata Result from current iteration.
+ * @param idata Result of previous iteration.
+ * @param parm Algorithm related parameters.
+ * @return
+ * @see
+ */
+void step(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+);
 
 }
 

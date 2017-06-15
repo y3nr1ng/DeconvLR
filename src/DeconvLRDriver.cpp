@@ -33,6 +33,14 @@ struct DeconvLR::Impl {
 	 * Device pointers
 	 */
 	cufftComplex *d_otf = nullptr;
+
+    /*
+     * Handles
+     */
+    cufftHandle est_fft = 0;
+    cufftHandle est_ifft = 0;
+    cufftHandle err_fft = 0;
+    cufftHandle err_ifft = 0;
 };
 
 // C++14 feature
@@ -80,6 +88,12 @@ void DeconvLR::setVolumeSize(
 	pimpl->volumeSize.x = nx;
 	pimpl->volumeSize.y = ny;
 	pimpl->volumeSize.z = nz;
+
+    fprintf(
+        stderr,
+        "[INFO] volume size = %ldx%ldx%ld\n",
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
+    );
 }
 
 /*
@@ -178,8 +192,27 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 }
 
 void DeconvLR::process(
-	ImageStack<uint16_t> &output,
-	const ImageStack<uint16_t> &input
+	ImageStack<uint16_t> &odata_u16,
+	const ImageStack<uint16_t> &idata_u16
 ) {
+    /*
+     * Ensure we are working with floating points.
+     */
+    ImageStack<float> idata(idata_u16);
 
+    /*
+     * Create FFT plans.
+     */
+     // FFT plans for estimation
+     cudaErrChk(cufftPlan3d(
+         &pimpl->est_fft,
+         nz, ny, nx,
+         CUFFT_R2C
+     ));
+     cudaErrChk(cufftPlan3d(
+         &pimpl->est_ifft,
+         nz, ny, nx,
+         CUFFT_C2R
+     ));
+     // FFT plans for error
 }

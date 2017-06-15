@@ -12,17 +12,18 @@
 // system headers
 
 struct DeconvLR::Impl {
-	Impl() {
+    Impl() {
 
-	}
-	~Impl() {
+    }
+
+    ~Impl() {
         if (d_otf != nullptr) {
             cudaErrChk(cudaFree(d_otf));
         }
-	}
+    }
 
-	// volume size
-	dim3 volumeSize;
+    // volume size
+    dim3 volumeSize;
     // voxel size
     struct {
         float3 raw;
@@ -34,10 +35,10 @@ struct DeconvLR::Impl {
      */
     int iterations;
 
-	/*
-	 * Device pointers
-	 */
-	cufftComplex *d_otf = nullptr;
+    /*
+     * Device pointers
+     */
+    cufftComplex *d_otf = nullptr;
 
     /*
      * Handles
@@ -46,16 +47,19 @@ struct DeconvLR::Impl {
     cufftHandle est_ifft = 0;
     cufftHandle err_fft = 0;
     cufftHandle err_ifft = 0;
+
+private:
+
 };
 
 // C++14 feature
 template<typename T, typename ... Args>
 std::unique_ptr<T> make_unique(Args&& ... args) {
-	return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
+    return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
 }
 
 DeconvLR::DeconvLR()
-	: pimpl(make_unique<Impl>()) {
+    : pimpl(make_unique<Impl>()) {
 }
 
 DeconvLR::~DeconvLR() {
@@ -63,8 +67,8 @@ DeconvLR::~DeconvLR() {
 }
 
 void DeconvLR::setResolution(
-	const float dx, const float dy, const float dz,
-	const float dpx, const float dpy, const float dpz
+    const float dx, const float dy, const float dz,
+    const float dpx, const float dpy, const float dpz
 ) {
     /*
      * Spatial frequency ratio (along one dimension)
@@ -84,15 +88,15 @@ void DeconvLR::setResolution(
 }
 
 void DeconvLR::setVolumeSize(
-	const size_t nx, const size_t ny, const size_t nz
+    const size_t nx, const size_t ny, const size_t nz
 ) {
     //TODO probe for device specification
-	if (nx > 2048 or ny > 2048 or nz > 2048) {
-		throw std::range_error("volume size exceeds maximum constraints");
-	}
-	pimpl->volumeSize.x = nx;
-	pimpl->volumeSize.y = ny;
-	pimpl->volumeSize.z = nz;
+    if (nx > 2048 or ny > 2048 or nz > 2048) {
+        throw std::range_error("volume size exceeds maximum constraints");
+    }
+    pimpl->volumeSize.x = nx;
+    pimpl->volumeSize.y = ny;
+    pimpl->volumeSize.z = nz;
 
     fprintf(
         stderr,
@@ -107,7 +111,7 @@ void DeconvLR::setVolumeSize(
  * ===========
  */
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
-	fprintf(stderr, "[DEBUG] --> setPSF()\n");
+    fprintf(stderr, "[DEBUG] --> setPSF()\n");
 
     /*
      * Ensure we are working with floating points.
@@ -197,6 +201,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 }
 
 void DeconvLR::initialize() {
+    dim3 volumeSize = pimpl->volumeSize;
+
     /*
      * Create FFT plans if not exists.
      */
@@ -242,10 +248,15 @@ void DeconvLR::process(
      * Ensure we are working with floating points.
      */
     ImageStack<float> idata(idata_u16);
-    dim3 volumeSize = pimpl->volumeSize;
 
     const int nIter = pimpl->iterations;
     for (int iIter = 0: i < nIter; i++) {
+        // x_k
+        // h_k
+        // g_{k-1} = x_k - y_{k-1}
+        // alpha (acceleration factor)
+        // y_k
+
         //    est_conv      = conv2(latent_est,PSF,'same');
         //    relative_blur = image./est_conv;
         //    error_est     = conv2(relative_blur,PSF_HAT,'same');

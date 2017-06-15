@@ -580,25 +580,49 @@ void dumpComplex(
 
 namespace Core {
 
-enum FilterType {
-    NON_CONJUGATE = 1, CONJUGATE
+/**
+ * @brief Brief introduction to the function.
+ *
+ * Description of what the function does
+ * @param PARAM1 Description of the first parameter of the function.
+ * @return Describe what the function returns.
+ * @see FUNCTION
+ */
+
+
+namespace RL {
+
+struct Parameters {
+    float raw;
+    float otf;
+    size_t nx, ny, nz;
+
+    struct {
+        cufftHandle forward;
+        cufftHandle reverse;
+    } fftHandle;
 };
 
-template<FilterType type>
-__global__
-void filter_kernel(FilterType type) {
+namespace {
 
 }
 
-template <>
-__global__
-void filter_kernel<NON_CONJUGATE>(Filter type) {
-
+ /**
+  * @brief One iteration in the Richardson-Lucy algorithm.
+  *
+  * DESCRIPTION
+  * @param odata Result from current iteration.
+  * @param idata Result of previous iteration.
+  * @param parm Algorithm related parameters.
+  * @return
+  * @see
+  */
+void step(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+) {
+    //TODO flip the fucking OTF
 }
-
-template <>
-__global__
-void filter_kernel<CONJUGATE>(Filter type) {
 
 }
 

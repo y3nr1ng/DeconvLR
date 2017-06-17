@@ -105,6 +105,16 @@ namespace RL {
  * Richardson-Lucy iteration steps.
  */
 struct Parameters {
+    //TODO destructor to free the memory region
+    //TODO destructor to free the FFT handles
+
+    /**
+     * Dimension of the image in real space.
+     */
+    size_t nx, ny, nz;
+    // product of nx, ny and nz
+    size_t nelem;
+
     /**
      *  The original image.
      */
@@ -116,13 +126,6 @@ struct Parameters {
     float *otf;
 
     /**
-     * Dimension of the image in real space.
-     */
-    size_t nx, ny, nz;
-    // product of nx, ny and nz
-    size_t nelem;
-
-    /**
      * cuFFT handles for forward (R2C) and reverse (C2R) FFT operations.
      */
     struct {
@@ -131,8 +134,7 @@ struct Parameters {
     } fftHandle;
 
     /**
-     * Intermediate buffers, maximum size is used - whether it is the padded
-     * cufftComplex array or the full-sized cufftReal array.
+     * Intermediate buffers, maximum size is used, aka padded input data size.
      */
     InPlaceType bufferA, bufferB;
 };

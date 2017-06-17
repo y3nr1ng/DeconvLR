@@ -5,7 +5,6 @@
 #include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
-#include <cufft.h>
 // standard libraries headers
 #include <exception>
 #include <cstdio>
@@ -34,20 +33,6 @@ struct DeconvLR::Impl {
      * Algorithm configurations.
      */
     int iterations;
-
-    /*
-     * Device pointers
-     */
-    cufftComplex *d_otf = nullptr;
-
-    /*
-     * Handles
-     */
-    cufftHandle est_fft = 0;
-    cufftHandle est_ifft = 0;
-    cufftHandle err_fft = 0;
-    cufftHandle err_ifft = 0;
-
     Core::RL::Parameters iterParms;
 };
 
@@ -200,30 +185,28 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 }
 
 void DeconvLR::initialize() {
-    dim3 volumeSize = pimpl->volumeSize;
+    const dim3 volumeSize = pimpl->volumeSize;
+    Core::RL::Parameters &iterParms = pimpl->iterParms;
 
     /*
-     * Create FFT plans if not exists.
+     * Load dimension information into the iteration parameter.
+     */
+    iterParms.nx = volumeSize.x;
+    iterParms.ny = volumeSize.y;
+    iterParms.nz = volumeSize.z;
+    iterParms.nelem = volumeSize.x * volumeSize.y * volumeSize.z;
+
+    /*
+     * Create FFT plans.
      */
      // FFT plans for estimation
      cudaErrChk(cufftPlan3d(
-         &pimpl->est_fft,
+         iterParms.fftHandle.forward,
          volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_R2C
      ));
      cudaErrChk(cufftPlan3d(
-         &pimpl->est_ifft,
-         volumeSize.z, volumeSize.y, volumeSize.x,
-         CUFFT_C2R
-     ));
-     // FFT plans for error
-     cudaErrChk(cufftPlan3d(
-         &pimpl->err_fft,
-         volumeSize.z, volumeSize.y, volumeSize.x,
-         CUFFT_R2C
-     ));
-     cudaErrChk(cufftPlan3d(
-         &pimpl->err_ifft,
+         iterParms.fftHandle.reverse,
          volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_C2R
      ));
@@ -235,25 +218,57 @@ void DeconvLR::initialize() {
       */
 
      /*
-      * Allocate host and device staging area.
+      * Allocate device staging area.
       */
+     const size_t wsSize =
+        (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
+     cudaErrChk(cudaMalloc(&iterParms.bufferA.complex, wsSize));
+     cudaErrChk(cudaMalloc(&iterParms.bufferB.complex, wsSize));
 }
 
 void DeconvLR::process(
 	ImageStack<uint16_t> &odata_u16,
 	const ImageStack<uint16_t> &idata_u16
 ) {
+    const dim3 volumeSize = pimpl->volumeSize;
+    Core::RL::Parameters &iterParms = pimpl->iterParms;
+
     /*
      * Ensure we are working with floating points.
      */
     ImageStack<float> idata(idata_u16);
 
     /*
+     * Copy the input data from host to staging area.
+     */
+     // use cudaMemcpy3D for maximum extensibility
+     cudaMemcpy3DParms cpParms = {0};
+     cpParms.srcPtr = make_cudaPitchedPtr(
+         idata.data(),
+         volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
+     );
+     cpParms.dstPtr = make_cudaPitchedPtr(
+         iterParms.bufferA.real,
+         iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
+     );
+     cpParms.extent = make_cudaExtent(
+         volumeSize.x, volumeSize.y, volumeSize.z
+     );
+     cpParms.kind = cudaMemcpyHostToDevice;
+     cudaErrChk(cudaMemcpy3D(&cpParms));
+
+    /*
      * Execute the core functions.
      */
     const int nIter = pimpl->iterations;
     for (int iIter = 0: i < nIter; i++) {
-        Core::Biggs::step();
+        Core::RL::step(
+            iterParms.bufferB.real, // output
+            iterParms.bufferA.real, // input
+            iterParms
+        );
+        // swap A, B buffer
+        std::swap(iterParms.bufferA, iterParms.bufferB);
     }
     // copy back the data
 

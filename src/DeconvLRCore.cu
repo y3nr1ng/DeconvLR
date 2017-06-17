@@ -612,6 +612,8 @@ void convolve(
     float *odata, const float *idataA, const float *idataB,
     Core::RL::Parameters &parm
 ) {
+    //TODO handle conjugate form
+    
     const size_t nelem = parm.nelem;
     cufftComplex *bufferA = parm.bufferA.complex;
     cufftComplex *bufferB = parm.bufferB.complex;

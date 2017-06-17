@@ -586,11 +586,6 @@ namespace RL {
 
 namespace {
 
-__global__
-void multiplyAndScaling_kernel() {
-
-}
-
 // generalized complex number operation
 struct MultiplyAndScale
     : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
@@ -613,7 +608,7 @@ void convolve(
     Core::RL::Parameters &parm
 ) {
     //TODO handle conjugate form
-    
+
     const size_t nelem = parm.nelem;
     cufftComplex *bufferA = parm.bufferA.complex;
     cufftComplex *bufferB = parm.bufferB.complex;

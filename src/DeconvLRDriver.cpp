@@ -48,8 +48,7 @@ struct DeconvLR::Impl {
     cufftHandle err_fft = 0;
     cufftHandle err_ifft = 0;
 
-private:
-
+    Core::RL::Parameters iterParms;
 };
 
 // C++14 feature

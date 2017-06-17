@@ -4,7 +4,9 @@
 #include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
+#include <cuComplex.h>
 #include <thrust/device_vector.h>
+#include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
@@ -589,10 +591,28 @@ void multiplyAndScaling_kernel() {
 
 }
 
+// generalized complex number operation
+struct MultiplyAndScale
+    : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
+    MultiplyAndScale(const float c_)
+        : c(c_) {
+    }
+
+    __host__ __device__
+    cuComplex operator()(const cuComplex &a, const cuComplex &b) const {
+        // (a*b) / c
+        return cuCmulf(a, b)/c;
+    }
+
+private:
+    const float c;
+}
+
 void convolve(
     float *odata, const float *idataA, const float *idataB,
     Core::RL::Parameters &parm
 ) {
+    const size_t nelem = parm.nelem;
     cufftComplex *bufferA = parm.bufferA.complex;
     cufftComplex *bufferB = parm.bufferB.complex;
 
@@ -601,8 +621,13 @@ void convolve(
     cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataB, bufferB));
 
     // element-wise multiplication and scale down
-    //TODO use SAXPY functor to do the dirty work
-    multiplyAndScaling_kernel<<<32, 256>>>(d_signal, d_filter_kernel, new_size, 1.0f / new_size);
+    thrust::transform(
+        thrust::device,
+        bufferA, bufferA+nelem,     // first input sequence
+        bufferB,                    // second input sequence
+        bufferB,                    // output sequence
+        MultiplyAndScale(1.0f/nelem)
+    );
 
     // convert back to real space
     cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, bufferA, odata));
@@ -614,6 +639,9 @@ void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
+    const size_t nelem = parm.nelem;
+    cufftReal *buffer = parm.bufferA.real;
+
     /*
      * \hat{f_{k+1}} =
      *     \hat{f_k} \left(
@@ -622,12 +650,24 @@ void step(
      */
 
     // reblur the image
-    T = convolve(otf, idata);
+    convolve(buffer, idata, otf, parm);
     // error
-    T = raw ./ T;
-    T = convolve(T, otf, CONJUGATE);
+    thrust::transform(
+        thrust::device,
+        parm.raw,  parm.raw+nelem,  // first input sequence
+        buffer,                     // second input sequence
+        buffer,                     // output sequence
+        thrust::divides<float>
+    );
+    convolve(buffer, buffer, otf, parm, CONJUGATE);
     // latent image
-    odata = idata * T;
+    thrust::transform(
+        thrust::device,
+        idata, idata+nelem,         // first input sequence
+        buffer,                     // second input sequence
+        odata,                      // output sequence
+        thrust::multiplies<float>
+    );
 }
 
 }

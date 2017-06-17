@@ -119,6 +119,8 @@ struct Parameters {
      * Dimension of the image in real space.
      */
     size_t nx, ny, nz;
+    // product of nx, ny and nz
+    size_t nelem;
 
     /**
      * cuFFT handles for forward (R2C) and reverse (C2R) FFT operations.

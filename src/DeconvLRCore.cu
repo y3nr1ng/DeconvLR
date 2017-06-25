@@ -616,22 +616,22 @@ void filter(
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
-    cufftComplex *bufferA = parm.bufferA.complex;
+    cufftComplex *buffer = parm.bufferA.complex;
 
     // convert to frequency space
-    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, bufferA));
+    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, buffer));
 
     // element-wise multiplication and scale down
     thrust::transform(
         thrust::device,
-        bufferA, bufferA+nelem,     // first input sequence
+        buffer, buffer+nelem,       // first input sequence
         idataB,                     // second input sequence
-        bufferA,                    // output sequence
+        buffer,                    // output sequence
         MultiplyAndScale<type>(1.0f/nelem)
     );
 
     // convert back to real space
-    cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, bufferA, odata));
+    cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, buffer, odata));
 }
 
 thrust::divides<float> DivfOp;

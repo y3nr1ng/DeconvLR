@@ -645,6 +645,8 @@ void step(
     const size_t nelem = parm.nelem;
     cufftReal *buffer = parm.bufferA.real;
 
+    const float *otf = parm.otf;
+
     /*
      * \hat{f_{k+1}} =
      *     \hat{f_k} \left(

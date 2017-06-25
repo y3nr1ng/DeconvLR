@@ -261,7 +261,7 @@ void DeconvLR::process(
      * Execute the core functions.
      */
     const int nIter = pimpl->iterations;
-    for (int iIter = 0; iIter < nIter; i++) {
+    for (int iIter = 0; iIter < nIter; iIter++) {
         Core::RL::step(
             iterParms.bufferB.real, // output
             iterParms.bufferA.real, // input

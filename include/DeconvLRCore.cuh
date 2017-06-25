@@ -123,7 +123,7 @@ struct Parameters {
     /**
      * Converted OTF, not conjugated.
      */
-    float *otf;
+    cufftComplex *otf;
 
     /**
      * cuFFT handles for forward (R2C) and reverse (C2R) FFT operations.
@@ -150,7 +150,7 @@ struct Parameters {
  * @see
  */
 void step(
-    float *odata, const float *idata,
+    float *odata, float *idata,
     Core::RL::Parameters &parm
 );
 

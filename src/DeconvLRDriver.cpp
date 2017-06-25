@@ -11,7 +11,8 @@
 // system headers
 
 struct DeconvLR::Impl {
-    Impl() {
+    Impl()
+        : iterations(10) {
 
     }
 

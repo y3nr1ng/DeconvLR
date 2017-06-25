@@ -600,10 +600,10 @@ struct MultiplyAndScale
     __host__ __device__
     cuComplex operator()(const cuComplex &a, const cuComplex &b) const {
         if (type == ConvType::CONJUGATE) {
-
+            return cuCmulf(a, cuConjf(b))/c;
+        } else {
+            return cuCmulf(a, b)/c;
         }
-        // (a*b) / c
-        return cuCmulf(a, b)/c;
     }
 
 private:
@@ -626,7 +626,7 @@ void filter(
         thrust::device,
         buffer, buffer+nelem,       // first input sequence
         idataB,                     // second input sequence
-        buffer,                    // output sequence
+        buffer,                     // output sequence
         MultiplyAndScale<type>(1.0f/nelem)
     );
 

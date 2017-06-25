@@ -32,6 +32,7 @@ int main(void)
     //      run the deconv
     deconvWorker.process(output, input);
     //      save the image
+    output.saveAs("result.tif");
     // save the log
     // release the resources
 

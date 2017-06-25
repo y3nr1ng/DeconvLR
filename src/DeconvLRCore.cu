@@ -636,6 +636,9 @@ void convolve(
     cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, bufferA, odata));
 }
 
+thrust::divides<float> DivfOp;
+thrust::multiplies<float> MulfOp;
+
 }
 
 void step(
@@ -662,7 +665,7 @@ void step(
         parm.raw,  parm.raw+nelem,  // first input sequence
         buffer,                     // second input sequence
         buffer,                     // output sequence
-        thrust::divides<float>
+        DivfOp
     );
     convolve<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
     // latent image
@@ -671,7 +674,7 @@ void step(
         idata, idata+nelem,         // first input sequence
         buffer,                     // second input sequence
         odata,                      // output sequence
-        thrust::multiplies<float>
+        MulfOp
     );
 }
 
@@ -688,7 +691,7 @@ void step(
     Core::RL::Parameters &parm
 ) {
     // execute an iteration of RL
-    RL::step();
+    //RL::step();
 
     // find the update direction
 

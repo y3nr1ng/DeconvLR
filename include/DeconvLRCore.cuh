@@ -81,4 +81,100 @@ void dumpComplex(
 
 }
 
+namespace Core {
+
+/**
+ * @brief Brief introduction to the function.
+ *
+ * Description of what the function does
+ * @param PARAM1 Description of the first parameter of the function.
+ * @return Describe what the function returns.
+ * @see FUNCTION
+ */
+
+// Note: buffers must be able to handle in-place FFT transform
+union InPlaceType {
+    cufftReal *real;
+    cufftComplex *complex;
+};
+
+namespace RL {
+
+/**
+ * Parameter class that holds all constant and temporary variables during the
+ * Richardson-Lucy iteration steps.
+ */
+struct Parameters {
+    //TODO destructor to free the memory region
+    //TODO destructor to free the FFT handles
+
+    /**
+     * Dimension of the image in real space.
+     */
+    size_t nx, ny, nz;
+    // product of nx, ny and nz
+    size_t nelem;
+
+    /**
+     *  The original image.
+     */
+    float *raw;
+
+    /**
+     * Converted OTF, not conjugated.
+     */
+    cufftComplex *otf;
+
+    /**
+     * cuFFT handles for forward (R2C) and reverse (C2R) FFT operations.
+     */
+    struct {
+        cufftHandle forward;
+        cufftHandle reverse;
+    } fftHandle;
+
+    /**
+     * Intermediate buffers, maximum size is used, aka padded input data size.
+     */
+    InPlaceType bufferA, bufferB;
+};
+
+/**
+ * @brief One iteration in the Richardson-Lucy algorithm.
+ *
+ * DESCRIPTION
+ * @param odata Result from current iteration.
+ * @param idata Result of previous iteration.
+ * @param parm Algorithm related parameters.
+ * @return
+ * @see
+ */
+void step(
+    float *odata, float *idata,
+    Core::RL::Parameters &parm
+);
+
+}
+
+namespace Biggs {
+
+/**
+ * @brief One iteration in the accelerated Richardson-Lucy algorithm.
+ *
+ * DESCRIPTION
+ * @param odata Result from current iteration.
+ * @param idata Result of previous iteration.
+ * @param parm Algorithm related parameters.
+ * @return
+ * @see
+ */
+void step(
+    float *odata, const float *idata,
+    Core::RL::Parameters &parm
+);
+
+}
+
+}
+
 #endif

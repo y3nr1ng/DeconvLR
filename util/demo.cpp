@@ -14,7 +14,7 @@ int main(void)
 
     std::string origImgFile = "data/bead/sample.tif";
     //std::string psfFile = "data/centroid/centroid_matlab_x20_y40_z80.tif";
-    std::string psfFile = "data/PSF_488.tif";
+    std::string psfFile = "data/bead/psf.tif";
 
     // scan the folder
     // search and load the otf
@@ -32,6 +32,7 @@ int main(void)
     //      run the deconv
     deconvWorker.process(output, input);
     //      save the image
+    output.saveAs("result.tif");
     // save the log
     // release the resources
 

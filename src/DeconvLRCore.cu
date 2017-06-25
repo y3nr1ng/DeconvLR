@@ -584,9 +584,13 @@ namespace Core {
 
 namespace RL {
 
-namespace {
+enum class ConvType {
+    PLAIN = 1, CONJUGATE
+};
 
-// generalized complex number operation
+namespace {
+// generic complex number operation
+template <ConvType type>
 struct MultiplyAndScale
     : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
     MultiplyAndScale(const float c_)
@@ -595,6 +599,9 @@ struct MultiplyAndScale
 
     __host__ __device__
     cuComplex operator()(const cuComplex &a, const cuComplex &b) const {
+        if (type == ConvType::CONJUGATE) {
+
+        }
         // (a*b) / c
         return cuCmulf(a, b)/c;
     }
@@ -603,12 +610,11 @@ private:
     const float c;
 }
 
+template <ConvType type>
 void convolve(
     float *odata, const float *idataA, const float *idataB,
     Core::RL::Parameters &parm
 ) {
-    //TODO handle conjugate form
-
     const size_t nelem = parm.nelem;
     cufftComplex *bufferA = parm.bufferA.complex;
     cufftComplex *bufferB = parm.bufferB.complex;
@@ -623,7 +629,7 @@ void convolve(
         bufferA, bufferA+nelem,     // first input sequence
         bufferB,                    // second input sequence
         bufferB,                    // output sequence
-        MultiplyAndScale(1.0f/nelem)
+        MultiplyAndScale<type>(1.0f/nelem)
     );
 
     // convert back to real space
@@ -647,7 +653,7 @@ void step(
      */
 
     // reblur the image
-    convolve(buffer, idata, otf, parm);
+    convolve<ConvType::PLAIN>(buffer, idata, otf, parm);
     // error
     thrust::transform(
         thrust::device,
@@ -656,7 +662,7 @@ void step(
         buffer,                     // output sequence
         thrust::divides<float>
     );
-    convolve(buffer, buffer, otf, parm, CONJUGATE);
+    convolve<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
     // latent image
     thrust::transform(
         thrust::device,

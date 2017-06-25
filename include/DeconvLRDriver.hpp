@@ -16,7 +16,7 @@ public:
 
     void setResolution(
         const float dx, const float dy, const float dz,
-        const float dpx=1.0f, const float dpy=1.0f, const float dpz=1.0f
+        const float dpx = 1.0f, const float dpy = 1.0f, const float dpz = 1.0f
     );
     void setVolumeSize(const size_t nx, const size_t ny, const size_t nz);
     void setPSF(const ImageStack<uint16_t> &psf);

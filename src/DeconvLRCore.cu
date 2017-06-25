@@ -612,7 +612,7 @@ private:
 
 template <ConvType type>
 void convolve(
-    float *odata, const float *idataA, const float *idataB,
+    float *odata, float *idataA, float *idataB,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
@@ -642,13 +642,13 @@ thrust::multiplies<float> MulfOp;
 }
 
 void step(
-    float *odata, const float *idata,
+    float *odata, float *idata,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
     cufftReal *buffer = parm.bufferA.real;
 
-    const float *otf = parm.otf;
+    float *otf = parm.otf;
 
     /*
      * \hat{f_{k+1}} =

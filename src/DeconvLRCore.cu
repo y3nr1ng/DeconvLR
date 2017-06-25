@@ -611,24 +611,22 @@ private:
 };
 
 template <ConvType type>
-void convolve(
-    float *odata, float *idataA, float *idataB,
+void filter(
+    float *odata, float *idataA, cufftComplex *idataB,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
     cufftComplex *bufferA = parm.bufferA.complex;
-    cufftComplex *bufferB = parm.bufferB.complex;
 
     // convert to frequency space
     cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, bufferA));
-    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataB, bufferB));
 
     // element-wise multiplication and scale down
     thrust::transform(
         thrust::device,
         bufferA, bufferA+nelem,     // first input sequence
-        bufferB,                    // second input sequence
-        bufferB,                    // output sequence
+        idataB,                     // second input sequence
+        bufferA,                    // output sequence
         MultiplyAndScale<type>(1.0f/nelem)
     );
 
@@ -648,7 +646,7 @@ void step(
     const size_t nelem = parm.nelem;
     cufftReal *buffer = parm.bufferA.real;
 
-    float *otf = parm.otf;
+    cufftComplex *otf = parm.otf;
 
     /*
      * \hat{f_{k+1}} =
@@ -658,7 +656,7 @@ void step(
      */
 
     // reblur the image
-    convolve<ConvType::PLAIN>(buffer, idata, otf, parm);
+    filter<ConvType::PLAIN>(buffer, idata, otf, parm);
     // error
     thrust::transform(
         thrust::device,
@@ -667,7 +665,7 @@ void step(
         buffer,                     // output sequence
         DivfOp
     );
-    convolve<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
+    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
     // latent image
     thrust::transform(
         thrust::device,

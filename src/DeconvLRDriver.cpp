@@ -16,9 +16,7 @@ struct DeconvLR::Impl {
     }
 
     ~Impl() {
-        if (d_otf != nullptr) {
-            cudaErrChk(cudaFree(d_otf));
-        }
+        // TODO free iterParms
     }
 
     // volume size
@@ -159,12 +157,12 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
 
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
-        &pimpl->d_otf,
+        &pimpl->iterParms.otf,
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
     // start the interpolation
     OTF::interpolate(
-        pimpl->d_otf,
+        pimpl->iterParms.otf,
         pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
         psf.nx()/2+1, psf.ny(), psf.nz(),
         pimpl->voxelSize.raw.x, pimpl->voxelSize.raw.y, pimpl->voxelSize.raw.z,
@@ -176,7 +174,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     CImg<float> otfCalc(pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z);
     OTF::dumpComplex(
         otfCalc.data(),
-        pimpl->d_otf,
+        pimpl->iterParms.otf,
         otfCalc.width(), otfCalc.height(), otfCalc.depth()
     );
     otfCalc.save_tiff("otf_interp.tif");
@@ -201,12 +199,12 @@ void DeconvLR::initialize() {
      */
      // FFT plans for estimation
      cudaErrChk(cufftPlan3d(
-         iterParms.fftHandle.forward,
+         &iterParms.fftHandle.forward,
          volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_R2C
      ));
      cudaErrChk(cufftPlan3d(
-         iterParms.fftHandle.reverse,
+         &iterParms.fftHandle.reverse,
          volumeSize.z, volumeSize.y, volumeSize.x,
          CUFFT_C2R
      ));

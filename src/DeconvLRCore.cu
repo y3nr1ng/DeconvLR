@@ -608,7 +608,7 @@ struct MultiplyAndScale
 
 private:
     const float c;
-}
+};
 
 template <ConvType type>
 void convolve(

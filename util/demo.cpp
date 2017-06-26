@@ -25,7 +25,7 @@ int main(void)
     // iterate through the images
     //      open the image
     const ImageStack<uint16_t> input(origImgFile);
-    ImageStack<uint16_t> output(input, 0);
+    ImageStack<float> output(input, 0);
     //      use the first image to init the resources
     deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
     deconvWorker.setPSF(psf);

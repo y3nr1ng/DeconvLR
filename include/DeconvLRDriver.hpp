@@ -25,7 +25,7 @@ public:
     void initialize();
     // start the RL core routines
     void process(
-        ImageStack<uint16_t> &output,
+        ImageStack<float> &output,
         const ImageStack<uint16_t> &input
     );
 

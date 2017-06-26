@@ -226,8 +226,9 @@ void DeconvLR::initialize() {
      cudaErrChk(cudaMalloc(&iterParms.bufferB, wsSize));
 }
 
+//TODO scale output from float to uint16
 void DeconvLR::process(
-	ImageStack<uint16_t> &odata_u16,
+	ImageStack<float> &odata,
 	const ImageStack<uint16_t> &idata_u16
 ) {
     const dim3 volumeSize = pimpl->volumeSize;
@@ -271,5 +272,17 @@ void DeconvLR::process(
         std::swap(iterParms.bufferA, iterParms.bufferB);
     }
     // copy back the data
-
+    cpParms.srcPtr = make_cudaPitchedPtr(
+        iterParms.bufferB,
+        iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
+    );
+    cpParms.dstPtr = make_cudaPitchedPtr(
+        odata.data(),
+        volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
+    );
+    cpParms.extent = make_cudaExtent(
+        volumeSize.x, volumeSize.y, volumeSize.z
+    );
+    cpParms.kind = cudaMemcpyDeviceToHost;
+    cudaErrChk(cudaMemcpy3D(&cpParms));
 }

@@ -269,7 +269,12 @@ void DeconvLR::process(
             iterParms
         );
         // swap A, B buffer
-        std::swap(iterParms.bufferA, iterParms.bufferB);
+        //std::swap(iterParms.bufferA, iterParms.bufferB);
+        Core::RL::step(
+            (float *)iterParms.bufferA,         // output
+            (const float *)iterParms.bufferB,   // input
+            iterParms
+        );
     }
     // copy back the data
     cpParms.srcPtr = make_cudaPitchedPtr(

@@ -262,33 +262,30 @@ void DeconvLR::process(
      * Execute the core functions.
      */
     const int nIter = pimpl->iterations;
-    for (int iIter = 0; iIter < nIter; iIter++) {
+    for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
             (float *)iterParms.bufferB,         // output
             (const float *)iterParms.bufferA,   // input
             iterParms
         );
         // swap A, B buffer
-        //std::swap(iterParms.bufferA, iterParms.bufferB);
-        Core::RL::step(
-            (float *)iterParms.bufferA,         // output
-            (const float *)iterParms.bufferB,   // input
-            iterParms
-        );
+        std::swap(iterParms.bufferA, iterParms.bufferB);
+
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
     // copy back the data
-    cpParms.srcPtr = make_cudaPitchedPtr(
+    cudaMemcpy3DParms cpParms2 = {0};
+    cpParms2.srcPtr = make_cudaPitchedPtr(
         iterParms.bufferA,
         iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
     );
-    cpParms.dstPtr = make_cudaPitchedPtr(
+    cpParms2.dstPtr = make_cudaPitchedPtr(
         odata.data(),
         volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
     );
-    cpParms.extent = make_cudaExtent(
+    cpParms2.extent = make_cudaExtent(
         volumeSize.x, volumeSize.y, volumeSize.z
     );
-    cpParms.kind = cudaMemcpyDeviceToHost;
-    cudaErrChk(cudaMemcpy3D(&cpParms));
+    cpParms2.kind = cudaMemcpyDeviceToHost;
+    cudaErrChk(cudaMemcpy3D(&cpParms2));
 }

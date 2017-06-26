@@ -29,6 +29,7 @@ int main(void)
     //      use the first image to init the resources
     deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
     deconvWorker.setPSF(psf);
+    deconvWorker.initialize();
     //      run the deconv
     deconvWorker.process(output, input);
     //      save the image

@@ -275,6 +275,7 @@ void DeconvLR::process(
             (const float *)iterParms.bufferB,   // input
             iterParms
         );
+        fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
     // copy back the data
     cpParms.srcPtr = make_cudaPitchedPtr(

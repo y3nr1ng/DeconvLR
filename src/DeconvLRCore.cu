@@ -612,11 +612,11 @@ private:
 
 template <ConvType type>
 void filter(
-    float *odata, float *idataA, cufftComplex *idataB,
+    float *odata, const float *idataA, const cufftComplex *idataB,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
-    cufftComplex *buffer = parm.bufferA.complex;
+    cufftComplex *buffer = parm.bufferA;
 
     // convert to frequency space
     cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, buffer));
@@ -640,11 +640,11 @@ thrust::multiplies<float> MulfOp;
 }
 
 void step(
-    float *odata, float *idata,
+    float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
-    cufftReal *buffer = parm.bufferA.real;
+    cufftReal *buffer = parm.bufferA;
 
     cufftComplex *otf = parm.otf;
 

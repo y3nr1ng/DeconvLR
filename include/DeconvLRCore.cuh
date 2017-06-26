@@ -92,12 +92,6 @@ namespace Core {
  * @see FUNCTION
  */
 
-// Note: buffers must be able to handle in-place FFT transform
-union InPlaceType {
-    cufftReal *real;
-    cufftComplex *complex;
-};
-
 namespace RL {
 
 /**
@@ -136,7 +130,8 @@ struct Parameters {
     /**
      * Intermediate buffers, maximum size is used, aka padded input data size.
      */
-    InPlaceType bufferA, bufferB;
+    void *bufferA;
+    void *bufferB;
 };
 
 /**

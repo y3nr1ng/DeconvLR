@@ -219,10 +219,11 @@ void DeconvLR::initialize() {
      /*
       * Allocate device staging area.
       */
+     // padded complex size is greater or equal to the original real size
      const size_t wsSize =
         (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
-     cudaErrChk(cudaMalloc(&iterParms.bufferA.complex, wsSize));
-     cudaErrChk(cudaMalloc(&iterParms.bufferB.complex, wsSize));
+     cudaErrChk(cudaMalloc(&iterParms.bufferA, wsSize));
+     cudaErrChk(cudaMalloc(&iterParms.bufferB, wsSize));
 }
 
 void DeconvLR::process(
@@ -247,7 +248,7 @@ void DeconvLR::process(
          volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
      );
      cpParms.dstPtr = make_cudaPitchedPtr(
-         iterParms.bufferA.real,
+         iterParms.bufferA,
          iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
      );
      cpParms.extent = make_cudaExtent(
@@ -262,8 +263,8 @@ void DeconvLR::process(
     const int nIter = pimpl->iterations;
     for (int iIter = 0; iIter < nIter; iIter++) {
         Core::RL::step(
-            iterParms.bufferB.real, // output
-            iterParms.bufferA.real, // input
+            iterParms.bufferB, // output
+            iterParms.bufferA, // input
             iterParms
         );
         // swap A, B buffer

@@ -273,7 +273,7 @@ void DeconvLR::process(
     }
     // copy back the data
     cpParms.srcPtr = make_cudaPitchedPtr(
-        iterParms.bufferB,
+        iterParms.bufferA,
         iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
     );
     cpParms.dstPtr = make_cudaPitchedPtr(

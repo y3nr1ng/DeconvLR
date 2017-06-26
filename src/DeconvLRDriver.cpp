@@ -83,7 +83,7 @@ void DeconvLR::setVolumeSize(
 
     fprintf(
         stderr,
-        "[INFO] volume size = %ldx%ldx%ld\n",
+        "[INFO] volume size = %ux%ux%u\n",
         pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
 }
@@ -263,8 +263,8 @@ void DeconvLR::process(
     const int nIter = pimpl->iterations;
     for (int iIter = 0; iIter < nIter; iIter++) {
         Core::RL::step(
-            iterParms.bufferB, // output
-            iterParms.bufferA, // input
+            (float *)iterParms.bufferB,         // output
+            (const float *)iterParms.bufferA,   // input
             iterParms
         );
         // swap A, B buffer

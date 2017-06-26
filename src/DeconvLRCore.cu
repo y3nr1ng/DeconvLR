@@ -616,10 +616,14 @@ void filter(
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
-    cufftComplex *buffer = parm.bufferA;
+    cufftComplex *buffer = (cufftComplex *)parm.bufferA;
 
     // convert to frequency space
-    cudaErrChk(cufftExecR2C(parm.fftHandle.forward, idataA, buffer));
+    cudaErrChk(cufftExecR2C(
+        parm.fftHandle.forward,
+        const_cast<cufftReal *>(idataA),    // input
+        buffer                              // output
+    ));
 
     // element-wise multiplication and scale down
     thrust::transform(
@@ -644,7 +648,7 @@ void step(
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = parm.nelem;
-    cufftReal *buffer = parm.bufferA;
+    cufftReal *buffer = (cufftReal *)parm.bufferA;
 
     cufftComplex *otf = parm.otf;
 

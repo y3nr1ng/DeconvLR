@@ -273,6 +273,9 @@ void DeconvLR::process(
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
+
+    cudaErrChk(cudaPeekAtLastError());
+
     // copy back the data
     cudaMemcpy3DParms cpParms2 = {0};
     cpParms2.srcPtr = make_cudaPitchedPtr(

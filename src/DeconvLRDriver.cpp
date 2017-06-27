@@ -251,6 +251,7 @@ void DeconvLR::process(
     /*
      * Copy the data to buffer area along with type casts.
      */
+    fprintf(stderr, "[DEBUG] %ld elements to type cast\n", nelem);
     Common::ushort2float(
         (float *)iterParms.bufferA, // output
         d_idata,                    // input
@@ -265,8 +266,7 @@ void DeconvLR::process(
     /*
      * Execute the core functions.
      */
-    /*
-    const int nIter = pimpl->iterations;
+    const int nIter = 1; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
             (float *)iterParms.bufferB,         // output
@@ -278,13 +278,12 @@ void DeconvLR::process(
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
-    */
 
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),
         iterParms.bufferA,
-        nelem,
+        nelem * sizeof(float),
         cudaMemcpyDeviceToHost
     ));
 }

@@ -723,6 +723,7 @@ struct ToFloat
 
 void ushort2float(float *odata, const uint16_t *idata, const size_t nelem) {
     thrust::transform(
+        thrust::device,
         idata, idata + nelem,   // input
         odata,                  // output
         ToFloat<uint16_t>()

@@ -615,7 +615,7 @@ void filter(
     float *odata, const float *idataA, const cufftComplex *idataB,
     Core::RL::Parameters &parm
 ) {
-    const size_t nelem = parm.nelem;
+    const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
     cufftComplex *buffer = (cufftComplex *)parm.bufferA;
 
     // convert to frequency space
@@ -651,6 +651,8 @@ void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
+    fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
+
     const size_t nelem = parm.nelem;
     cufftReal *buffer = (cufftReal *)parm.bufferA;
 
@@ -663,11 +665,13 @@ void step(
      *     \right)
      */
 
-    fprintf(stderr, "A");
+    fprintf(stderr, "A\n");
 
     // reblur the image
-    filter<ConvType::PLAIN>(buffer, idata, otf, parm);
-    fprintf(stderr, "B");
+    filter<ConvType::PLAIN>(odata, idata, otf, parm);
+    //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
+    /*
+    fprintf(stderr, "B\n");
     // error
     thrust::transform(
         thrust::device,
@@ -676,9 +680,9 @@ void step(
         buffer,                     // output sequence
         DivfOp
     );
-    fprintf(stderr, "C");
+    fprintf(stderr, "C\n");
     filter<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
-    fprintf(stderr, "D");
+    fprintf(stderr, "D\n");
     // latent image
     thrust::transform(
         thrust::device,
@@ -687,7 +691,10 @@ void step(
         odata,                      // output sequence
         MulfOp
     );
-    fprintf(stderr, "E");
+    fprintf(stderr, "E\n");
+    */
+
+    fprintf(stderr, "[DEBUG] +++ EXIT RL::step() +++\n");
 }
 
 }

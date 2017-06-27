@@ -94,7 +94,7 @@ void DeconvLR::setVolumeSize(
  * ===========
  */
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
-    fprintf(stderr, "[DEBUG] --> setPSF()\n");
+    fprintf(stderr, "[DEBUG] +++ ENTER setPSF() +++\n");
 
     /*
      * Ensure we are working with floating points.
@@ -180,7 +180,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     );
     otfCalc.save_tiff("otf_interp.tif");
 
-	fprintf(stderr, "[DEBUG] setPSF() -->\n");
+	fprintf(stderr, "[DEBUG] +++ EXIT setPSF() +++\n");
 }
 
 void DeconvLR::initialize() {
@@ -234,10 +234,7 @@ void DeconvLR::process(
     Core::RL::Parameters &iterParms = pimpl->iterParms;
     const size_t nelem = iterParms.nelem;
 
-    /*
-     * Pinned the host memory for device to access.
-     */
-    // register the region as pinned
+    // register the input data memory region on host as pinned
     cudaErrChk(cudaHostRegister(
         idata.data(),
         nelem * sizeof(float),
@@ -268,26 +265,11 @@ void DeconvLR::process(
      */
     const int nIter = 1; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
-        cudaErrChk(cudaMemcpy(
-            iterParms.bufferB,
-            iterParms.bufferA,
-            nelem * sizeof(float),
-            cudaMemcpyDeviceToDevice
-        ));
-
-        cudaErrChk(cudaMemset(
-            iterParms.bufferA,
-            0,
-            nelem * sizeof(float)
-        ));
-
-        /*
         Core::RL::step(
             (float *)iterParms.bufferB,         // output
             (const float *)iterParms.bufferA,   // input
             iterParms
         );
-        */
         // swap A, B buffer
         std::swap(iterParms.bufferA, iterParms.bufferB);
 

@@ -229,38 +229,43 @@ void DeconvLR::initialize() {
 //TODO scale output from float to uint16
 void DeconvLR::process(
 	ImageStack<float> &odata,
-	const ImageStack<uint16_t> &idata_u16
+	const ImageStack<uint16_t> &idata
 ) {
-    const dim3 volumeSize = pimpl->volumeSize;
     Core::RL::Parameters &iterParms = pimpl->iterParms;
+    const size_t nelem = iterParms.nelem;
 
     /*
-     * Ensure we are working with floating points.
+     * Pinned the host memory for device to access.
      */
-    ImageStack<float> idata(idata_u16);
+    // register the region as pinned
+    cudaErrChk(cudaHostRegister(
+        idata.data(),
+        nelem * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+
+    // retrieve the host pointer
+    uint16_t *d_idata = nullptr;
+    cudaErrChk(cudaHostGetDevicePointer(&d_idata, idata.data(), 0));
 
     /*
-     * Copy the input data from host to staging area.
+     * Copy the data to buffer area along with type casts.
      */
-     // use cudaMemcpy3D for maximum extensibility
-     cudaMemcpy3DParms cpParms = {0};
-     cpParms.srcPtr = make_cudaPitchedPtr(
-         idata.data(),
-         volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
-     );
-     cpParms.dstPtr = make_cudaPitchedPtr(
-         iterParms.bufferA,
-         iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
-     );
-     cpParms.extent = make_cudaExtent(
-         volumeSize.x, volumeSize.y, volumeSize.z
-     );
-     cpParms.kind = cudaMemcpyHostToDevice;
-     cudaErrChk(cudaMemcpy3D(&cpParms));
+    Common::ushort2float(
+        (float *)iterParms.bufferA, // output
+        d_idata,                    // input
+        nelem
+    );
+
+    /*
+     * Release the pinned memory region.
+     */
+    cudaErrChk(cudaHostUnregister(idata.data()));
 
     /*
      * Execute the core functions.
      */
+    /*
     const int nIter = pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
@@ -273,22 +278,13 @@ void DeconvLR::process(
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
+    */
 
-    cudaErrChk(cudaPeekAtLastError());
-
-    // copy back the data
-    cudaMemcpy3DParms cpParms2 = {0};
-    cpParms2.srcPtr = make_cudaPitchedPtr(
-        iterParms.bufferA,
-        iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
-    );
-    cpParms2.dstPtr = make_cudaPitchedPtr(
+    // copy back to host
+    cudaErrChk(cudaMemcpy(
         odata.data(),
-        volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
-    );
-    cpParms2.extent = make_cudaExtent(
-        volumeSize.x, volumeSize.y, volumeSize.z
-    );
-    cpParms2.kind = cudaMemcpyDeviceToHost;
-    cudaErrChk(cudaMemcpy3D(&cpParms2));
+        iterParms.bufferA,
+        nelem,
+        cudaMemcpyDeviceToHost
+    ));
 }

@@ -172,4 +172,10 @@ void step(
 
 }
 
+namespace Common {
+
+void ushort2float(float *odata, const uint16_t *idata, const size_t nelem);
+
+}
+
 #endif

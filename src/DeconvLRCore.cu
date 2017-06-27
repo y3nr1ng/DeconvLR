@@ -705,3 +705,28 @@ void step(
 }
 
 }
+
+namespace Common {
+
+namespace {
+
+template <typename T>
+struct ToFloat
+    : public thrust::unary_function<const T, float> {
+    __host__ __device__
+    float operator()(const T &v) const {
+        return (float)v;
+    }
+};
+
+}
+
+void ushort2float(float *odata, const uint16_t *idata, const size_t nelem) {
+    thrust::transform(
+        idata, idata + nelem,   // input
+        odata,                  // output
+        ToFloat<uint16_t>()
+    );
+}
+
+}

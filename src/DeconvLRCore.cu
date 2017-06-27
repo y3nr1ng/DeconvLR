@@ -635,7 +635,11 @@ void filter(
     );
 
     // convert back to real space
-    cudaErrChk(cufftExecC2R(parm.fftHandle.reverse, buffer, odata));
+    cudaErrChk(cufftExecC2R(
+        parm.fftHandle.reverse,
+        buffer,                     // input
+        odata                       // output
+    ));
 }
 
 thrust::divides<float> DivfOp;

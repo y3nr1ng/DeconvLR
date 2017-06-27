@@ -221,7 +221,7 @@ void DeconvLR::initialize() {
       */
      // padded complex size is greater or equal to the original real size
      const size_t wsSize =
-        (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
+         (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
      cudaErrChk(cudaMalloc(&iterParms.bufferA, wsSize));
      cudaErrChk(cudaMalloc(&iterParms.bufferB, wsSize));
 }
@@ -258,8 +258,6 @@ void DeconvLR::process(
         nelem
     );
 
-    fprintf(stderr, "[DEBUG] %ld elements in the output array\n", odata.object().size());
-
     /*
      * Release the pinned memory region.
      */
@@ -270,13 +268,28 @@ void DeconvLR::process(
      */
     const int nIter = 1; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
+        cudaErrChk(cudaMemcpy(
+            iterParms.bufferB,
+            iterParms.bufferA,
+            nelem * sizeof(float),
+            cudaMemcpyDeviceToDevice
+        ));
+
+        cudaErrChk(cudaMemset(
+            iterParms.bufferA,
+            0,
+            nelem * sizeof(float)
+        ));
+
+        /*
         Core::RL::step(
             (float *)iterParms.bufferB,         // output
             (const float *)iterParms.bufferA,   // input
             iterParms
         );
+        */
         // swap A, B buffer
-        //std::swap(iterParms.bufferA, iterParms.bufferB);
+        std::swap(iterParms.bufferA, iterParms.bufferB);
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
@@ -284,7 +297,7 @@ void DeconvLR::process(
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),
-        (float *)iterParms.bufferB,
+        iterParms.bufferA,
         nelem * sizeof(float),
         cudaMemcpyDeviceToHost
     ));

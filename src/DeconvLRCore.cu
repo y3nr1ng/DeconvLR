@@ -659,8 +659,11 @@ void step(
      *     \right)
      */
 
+    fprintf(stderr, "A");
+
     // reblur the image
     filter<ConvType::PLAIN>(buffer, idata, otf, parm);
+    fprintf(stderr, "B");
     // error
     thrust::transform(
         thrust::device,
@@ -669,7 +672,9 @@ void step(
         buffer,                     // output sequence
         DivfOp
     );
+    fprintf(stderr, "C");
     filter<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
+    fprintf(stderr, "D");
     // latent image
     thrust::transform(
         thrust::device,
@@ -678,6 +683,7 @@ void step(
         odata,                      // output sequence
         MulfOp
     );
+    fprintf(stderr, "E");
 }
 
 }

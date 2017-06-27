@@ -258,6 +258,8 @@ void DeconvLR::process(
         nelem
     );
 
+    fprintf(stderr, "[DEBUG] %ld elements in the output array\n", odata.object().size());
+
     /*
      * Release the pinned memory region.
      */
@@ -279,6 +281,7 @@ void DeconvLR::process(
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
 
+    fprintf(stderr, "[DEBUG] access size = %ld\n", nelem * sizeof(float));
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),

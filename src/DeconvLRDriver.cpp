@@ -281,11 +281,10 @@ void DeconvLR::process(
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
 
-    fprintf(stderr, "[DEBUG] access size = %ld\n", nelem * sizeof(float));
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),
-        iterParms.bufferB,
+        (float *)iterParms.bufferB,
         nelem * sizeof(float),
         cudaMemcpyDeviceToHost
     ));

@@ -11,6 +11,10 @@
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
 #include <cufft.h>
+
+#define cimg_use_tiff
+#include "CImg.h"
+using namespace cimg_library;
 // standard libraries headers
 #include <cstdint>
 // system headers
@@ -612,7 +616,7 @@ private:
 
 template <ConvType type>
 void filter(
-    float *odata, const float *idataA, const cufftComplex *idataB,
+    float *odata, float *idataA, const cufftComplex *idataB,
     Core::RL::Parameters &parm
 ) {
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
@@ -621,9 +625,17 @@ void filter(
     // convert to frequency space
     cudaErrChk(cufftExecR2C(
         parm.fftHandle.forward,
-        const_cast<cufftReal *>(idataA),    // input
-        buffer                              // output
+        idataA,  // input
+        buffer                          // output
     ));
+
+    CImg<float> dump(parm.nx/2+1, parm.ny, parm.nz);
+    OTF::dumpComplex(
+        dump.data(),
+        buffer,
+        dump.width(), dump.height(), dump.depth()
+    );
+    dump.save_tiff("data_freq.tif");
 
     // element-wise multiplication and scale down
     thrust::transform(
@@ -668,7 +680,7 @@ void step(
     fprintf(stderr, "A\n");
 
     // reblur the image
-    filter<ConvType::PLAIN>(odata, idata, otf, parm);
+    filter<ConvType::PLAIN>(odata, const_cast<float *>(idata), otf, parm);
     //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
     /*
     fprintf(stderr, "B\n");

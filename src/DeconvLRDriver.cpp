@@ -149,13 +149,6 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     );
     fprintf(stderr, "[DEBUG] template OTF generated\n");
 
-    CImg<float> otfTpl(psf.nx()/2+1, psf.ny(), psf.nz());
-    OTF::dumpTemplate(
-        otfTpl.data(),
-        otfTpl.width(), otfTpl.height(), otfTpl.depth()
-    );
-    otfTpl.save_tiff("otf_template.tif");
-
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
         &pimpl->iterParms.otf,

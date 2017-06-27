@@ -276,7 +276,7 @@ void DeconvLR::process(
             iterParms
         );
         // swap A, B buffer
-        std::swap(iterParms.bufferA, iterParms.bufferB);
+        //std::swap(iterParms.bufferA, iterParms.bufferB);
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
@@ -285,7 +285,7 @@ void DeconvLR::process(
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),
-        iterParms.bufferA,
+        iterParms.bufferB,
         nelem * sizeof(float),
         cudaMemcpyDeviceToHost
     ));

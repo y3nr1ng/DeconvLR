@@ -252,6 +252,8 @@ void PSF::createOTF(cufftComplex *d_otf) {
      */
     cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
 
+    // shift the kernel
+
     // release FFT resource
     cudaErrChk(cufftDestroy(otfHdl));
 

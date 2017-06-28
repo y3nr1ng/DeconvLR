@@ -14,73 +14,35 @@ namespace DeconvRL {
 
 namespace PSF {
 
-/*
- * Remove constant background noise.
- */
- void removeBackground(
-     float *h_psf,
-     const size_t nx, const size_t ny, const size_t nz
-);
+class PSF {
+public:
+    PSF(
+        float *h_psf,
+        const size_t npx_, const size_t npy_, const size_t npz_
+    );
+    ~PSF();
 
-/*
- * Find center of the PSF data.
- */
-float3 findCentroid(
-    float *h_psf,
-    const size_t nx, const size_t ny, const size_t nz
-);
+    void alignCenter();
+    void createOTF(
+        cufftComplex *d_otf,
+        const size_t nx, const size_t ny, const size_t nz
+    );
 
-/*
- * Bind host PSF image data for further processing.
- */
-void bindData(
-    float *h_psf,
-    const size_t nx, const size_t ny, const size_t nz
-);
+private:
+    float3 findCentroid();
+    float estimateBackground();
 
-/*
- * Move centroid of the 3-D PSF to center of the volume.
- */
- void alignCenter(
-     float *h_psf,
-     const size_t nx, const size_t ny, const size_t nz,
-     const float3 centroid
- );
+    // PSF memory, host side and mirrored device address
+    float *h_psf;
+    float *d_psf;
 
-/*
- * Release the resources used by the PSF functions.
- */
-void release();
+    // texture source for the PSF
+    cudaArray_t psfRes = nullptr;
 
-}
-
-namespace OTF {
-
-void fromPSF(
-    float *h_psf,
-    const size_t nx, const size_t ny, const size_t nz
-);
-
-void interpolate(
-    cufftComplex *d_otf,
-    const size_t nx, const size_t ny, const size_t nz,      // full size
-    const size_t ntx, const size_t nty, const size_t ntz,   // template size
-    const float dx, const float dy, const float dz,
-    const float dtx, const float dty, const float dtz
-);
-
-void release();
-
-void dumpTemplate(
-    float *h_otf,
-    const size_t nx, const size_t ny, const size_t nz
-);
-
-void dumpComplex(
-    float *h_odata,
-    const cufftComplex *d_idata,
-    const size_t nx, const size_t ny, const size_t nz
-);
+    // initial size of the point spread function
+    const size_t npx, npy, npz;
+    size_t nelem;
+};
 
 }
 

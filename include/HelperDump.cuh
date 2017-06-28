@@ -56,7 +56,7 @@ void real(
     cudaErrChk(cudaHostGetDevicePointer(&d_odata, data.data(), 0));
 
     // copy from device to host
-    cudaErrChk(cudaMemcpy(d_odata, d_idata, dataSize, cudaMemcpyDeviceToHost));
+    cudaErrChk(cudaMemcpy(d_odata, d_idata, size, cudaMemcpyDeviceToHost));
 
     // release the resources
     cudaErrChk(cudaHostUnregister(data.data()));
@@ -112,7 +112,7 @@ void real(
     std::memcpy(data.data(), h_idata, size);
 
     // save the result to file
-    data.saveAs(fname.c_str());
+    data.save_tiff(fname.c_str());
 }
 
 }

@@ -109,8 +109,8 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Generate the OTF.
      */
-    PSF::PSF psf(psf.data(), psf.nx(), psf.ny(), psf.nz());
-    psf.alignCenter();
+    PSF::PSF psfProc(psf.data(), psf.nx(), psf.ny(), psf.nz());
+    psfProc.alignCenter();
 
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
@@ -118,7 +118,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
     // create the OTF
-    psf.createOTF(
+    psfProc.createOTF(
         pimpl->iterParms.otf,
         pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z
     );

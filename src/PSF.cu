@@ -110,207 +110,192 @@ void alignCenter_kernel(
 
 }
 
-class PSF {
-public:
-    PSF(
-        const float *h_psf,
-        const size_t npx_, const size_t npy_, const size_t npz_
-    ) : npx(npx_), npy(npy_), npz(npz_) {
-        nelem = npx * npy * npz;
+PSF::PSF(
+    float *h_psf,
+    const size_t npx_, const size_t npy_, const size_t npz_
+) : npx(npx_), npy(npy_), npz(npz_) {
+    nelem = npx * npy * npz;
 
-        // pinned down the host memory region
-        cudaErrChk(cudaHostRegister(
-            h_psf,
-            nelem * sizeof(float),
-            cudaHostRegisterMapped
-        ));
-        // retrieve the device address
-        cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
-    }
+    // pinned down the host memory region
+    cudaErrChk(cudaHostRegister(
+        h_psf,
+        nelem * sizeof(float),
+        cudaHostRegisterMapped
+    ));
+    // retrieve the device address
+    cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
+}
 
-    ~PSF() {
-        cudaErrChk(cudaHostUnregister(h_psf));
-    }
+PSF::~PSF() {
+    cudaErrChk(cudaHostUnregister(h_psf));
+}
 
-    void alignCenter() {
-        float3 centroid = findCentroid();
-        fprintf(
-            stderr,
-            "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
-            centroid.x, centroid.y, centroid.z
-        );
+void PSF::alignCenter() {
+    float3 centroid = findCentroid();
+    fprintf(
+        stderr,
+        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
+        centroid.x, centroid.y, centroid.z
+    );
 
-        /*
-         * Bind the data source to the texture.
-         */
-        // create cudaArray for the texture.
-        cudaChannelFormatDesc desc = cudaCreateChannelDesc(
-            32, 0, 0, 0, cudaChannelFormatKindFloat
-        );
-        cudaExtent extent = make_cudaExtent(npx, npy, npz);
-        cudaErrChk(cudaMalloc3DArray(
-            &psfRes,
-            &desc,      // pixel channel description
-            extent,     // array dimension
-            cudaArrayDefault
-        ));
+    /*
+     * Bind the data source to the texture.
+     */
+    // create cudaArray for the texture.
+    cudaChannelFormatDesc desc = cudaCreateChannelDesc(
+        32, 0, 0, 0, cudaChannelFormatKindFloat
+    );
+    cudaExtent extent = make_cudaExtent(npx, npy, npz);
+    cudaErrChk(cudaMalloc3DArray(
+        &psfRes,
+        &desc,      // pixel channel description
+        extent,     // array dimension
+        cudaArrayDefault
+    ));
 
-        // copy the data to cudaArray_t
-        cudaMemcpy3DParms parms = {0};
-        parms.srcPtr = make_cudaPitchedPtr(h_psf, nx * sizeof(float), nx, ny);
-        parms.dstArray = psfRes;
-        parms.extent = extent;
-        parms.kind = cudaMemcpyHostToDevice;
-        cudaErrChk(cudaMemcpy3D(&parms));
+    // copy the data to cudaArray_t
+    cudaMemcpy3DParms parms = {0};
+    parms.srcPtr = make_cudaPitchedPtr(h_psf, npx * sizeof(float), npx, npy);
+    parms.dstArray = psfRes;
+    parms.extent = extent;
+    parms.kind = cudaMemcpyHostToDevice;
+    cudaErrChk(cudaMemcpy3D(&parms));
 
-        // reconfigure the texture
-        psfTexRef.normalized = true;
-        // sampled data is interpolated
-        psfTexRef.filterMode = cudaFilterModeLinear;
-        // wrap around the texture if exceeds border limit
-        psfTexRef.addressMode[0] = cudaAddressModeWrap;
-        psfTexRef.addressMode[1] = cudaAddressModeWrap;
-        psfTexRef.addressMode[2] = cudaAddressModeWrap;
+    // reconfigure the texture
+    psfTexRef.normalized = true;
+    // sampled data is interpolated
+    psfTexRef.filterMode = cudaFilterModeLinear;
+    // wrap around the texture if exceeds border limit
+    psfTexRef.addressMode[0] = cudaAddressModeWrap;
+    psfTexRef.addressMode[1] = cudaAddressModeWrap;
+    psfTexRef.addressMode[2] = cudaAddressModeWrap;
 
-        // start the binding
-        cudaErrChk(cudaBindTextureToArray(psfTexRef, psfRes, desc));
+    // start the binding
+    cudaErrChk(cudaBindTextureToArray(psfTexRef, psfRes, desc));
 
-        /*
-         * Execute the alignment kernel.
-         */
-        // coordinate of the center of the volume
-        const float3 center = make_float3(
-            (nx-1)/2.0f, (ny-1)/2.0f, (nz-1)/2.0f
-        );
-        // offset
-        const float3 offset = centroid - center;
-        fprintf(stderr, "[DEBUG] offset = (%.2f, %.2f, %.2f)\n", offset.x, offset.y, offset.z);
+    /*
+     * Execute the alignment kernel.
+     */
+    // coordinate of the center of the volume
+    const float3 center = make_float3(
+        (npx-1)/2.0f, (npy-1)/2.0f, (npz-1)/2.0f
+    );
+    // offset
+    const float3 offset = centroid - center;
+    fprintf(stderr, "[DEBUG] offset = (%.2f, %.2f, %.2f)\n", offset.x, offset.y, offset.z);
 
-        // begin resample the kernel
-        dim3 nthreads(16, 16, 4);
-        dim3 nblocks(
-            DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
-        );
-        alignCenter_kernel<<<nblocks, nthreads>>>(
-            d_psf,
-            nx, ny, nz,
-            offset.x, offset.y, offset.z
-        );
-        cudaErrChk(cudaPeekAtLastError());
+    // begin resample the kernel
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(npx, nthreads.x), DIVUP(npy, nthreads.y), DIVUP(npz, nthreads.z)
+    );
+    alignCenter_kernel<<<nblocks, nthreads>>>(
+        d_psf,
+        npx, npy, npz,
+        offset.x, offset.y, offset.z
+    );
+    cudaErrChk(cudaPeekAtLastError());
 
-        /*
-         * Release the resources.
-         */
-        cudaErrChk(cudaUnbindTexture(psfTexRef));
-        cudaErrChk(cudaFreeArray(psfRes));
+    /*
+     * Release the resources.
+     */
+    cudaErrChk(cudaUnbindTexture(psfTexRef));
+    cudaErrChk(cudaFreeArray(psfRes));
 
-        DumpData::Host::real("psf_aligned.tif", h_psf, npx, npy, npz);
-    }
+    DumpData::Host::real("psf_aligned.tif", h_psf, npx, npy, npz);
+}
 
-    void createOTF(
-        cufftComplex *d_otf,
-        const size_t nx, const size_t ny, const size_t nz
-    ) {
-        /*
-         * Prepare FFT environment.
-         */
-        cufftHandle otfHdl;
-        cudaErrChk(cufftPlan3d(&otfHdl, nz, ny, nx, CUFFT_R2C));
-        // estimate resource requirements
-        size_t size;
-        cudaErrChk(cufftGetSize3d(otfHdl, nz, ny, nx, CUFFT_R2C, &size));
-        fprintf(stderr, "[DEBUG] requires %ld bytes to generate an OTF\n", size);
+void PSF::createOTF(
+    cufftComplex *d_otf,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    /*
+     * Prepare FFT environment.
+     */
+    cufftHandle otfHdl;
+    cudaErrChk(cufftPlan3d(&otfHdl, nz, ny, nx, CUFFT_R2C));
+    // estimate resource requirements
+    size_t size;
+    cudaErrChk(cufftGetSize3d(otfHdl, nz, ny, nx, CUFFT_R2C, &size));
+    fprintf(stderr, "[DEBUG] requires %ld bytes to generate an OTF\n", size);
 
-        /*
-         * Execute the conversion.
-         */
-        cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
+    /*
+     * Execute the conversion.
+     */
+    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
 
-        // release FFT resource
-        cudaErrChk(cufftDestroy(otfHdl));
+    // release FFT resource
+    cudaErrChk(cufftDestroy(otfHdl));
 
-        Dump::Device::complex("otf_dump.tif", d_otf, nx/2+1, ny, nz);
-    }
+    DumpData::Device::complex("otf_dump.tif", d_otf, nx/2+1, ny, nz);
+}
 
-private:
-    // center the PSF to its potential centroid
-    float3 findCentroid() {
-        const size_t size = nelem * sizeof(float);
+// center the PSF to its potential centroid
+float3 PSF::findCentroid() {
+    const size_t size = nelem * sizeof(float);
 
-        /*
-         * Create temporary PSF to find the centroid.
-         */
-        float *d_tmp;
-        cudaErrChk(cudaMalloc(&d_tmp, size));
-        // copy the raw PSF to temporary PSF
-        cudaErrChk(cudaMemcpy(d_tmp, h_psf, size, cudaMemcpyHostToDevice));
+    /*
+     * Create temporary PSF to find the centroid.
+     */
+    float *d_tmp;
+    cudaErrChk(cudaMalloc(&d_tmp, size));
+    // copy the raw PSF to temporary PSF
+    cudaErrChk(cudaMemcpy(d_tmp, h_psf, size, cudaMemcpyHostToDevice));
 
-        // estimate and remove the background, clamp at [0, +inf)
-        const float bkgLvl = estimateBackground(d_psf);
-        fprintf(stderr, "[INFO] background level = %.2f\n", bkgLvl);
-        thrust::transform(
-            d_tmp, d_tmp+nelem,
-            d_tmp,
-            SubConstant(bkgLvl)
-        );
+    // estimate and remove the background, clamp at [0, +inf)
+    const float bkgLvl = estimateBackground();
+    fprintf(stderr, "[INFO] background level = %.2f\n", bkgLvl);
+    thrust::transform(
+        d_tmp, d_tmp+nelem,
+        d_tmp,
+        SubConstant(bkgLvl)
+    );
 
-        /*
-         * Generate 3-D grid for weighting.
-         */
-        int3 *d_grid;
-        cudaErrChk(cudaMalloc(&d_grid, nelem * sizeof(int3)));
-        dim3 nthreads(16, 16, 4);
-        dim3 nblocks(
-            DIVUP(npx, nthreads.x), DIVUP(npy, nthreads.y), DIVUP(npz, nthreads.z)
-        );
-        createGrid_kernel<<<nblocks, nthreads>>>(d_grid, npx, npy, npz);
-        cudaErrChk(cudaPeekAtLastError());
+    /*
+     * Generate 3-D grid for weighting.
+     */
+    int3 *d_grid;
+    cudaErrChk(cudaMalloc(&d_grid, nelem * sizeof(int3)));
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(npx, nthreads.x), DIVUP(npy, nthreads.y), DIVUP(npz, nthreads.z)
+    );
+    createGrid_kernel<<<nblocks, nthreads>>>(d_grid, npx, npy, npz);
+    cudaErrChk(cudaPeekAtLastError());
 
-        /*
-         * Calculate the centroid along weighted grid points using cleaned PSF.
-         */
-        float4 result = thrust::transform_reduce(
-            thrust::device,
-            d_grid, d_grid+nelem,
-            MultiplyWeighting(d_tmp, npx, npy, npz),
-            make_float4(0),
-            thrust::plus<float4>()
-        );
+    /*
+     * Calculate the centroid along weighted grid points using cleaned PSF.
+     */
+    float4 result = thrust::transform_reduce(
+        thrust::device,
+        d_grid, d_grid+nelem,
+        MultiplyWeighting(d_tmp, npx, npy, npz),
+        make_float4(0),
+        thrust::plus<float4>()
+    );
 
-        float3 centroid = make_float3(
-            result.x/result.w, result.y/result.w, result.z/result.w
-        );
+    float3 centroid = make_float3(
+        result.x/result.w, result.y/result.w, result.z/result.w
+    );
 
-        // free the weight computation resources
-        cudaErrChk(cudaFree(d_grid));
-        cudaErrChk(cudaFree(d_tmp));
-        // unregsiter host memory region
-        cudaErrChk(cudaHostUnregister(h_psf));
+    // free the weight computation resources
+    cudaErrChk(cudaFree(d_grid));
+    cudaErrChk(cudaFree(d_tmp));
+    // unregsiter host memory region
+    cudaErrChk(cudaHostUnregister(h_psf));
 
-        return centroid;
-    }
+    return centroid;
+}
 
-    float estimateBackground(thrust::device_vector<float> &data) {
-        float sum = thrust::reduce(
-            thrust::device,
-            data.begin(), data.end(),
-            0,
-            thrust::plus<float>()
-        );
-        return sum / data.size();
-    }
-
-    // PSF memory, host side and mirrored device address
-    float *h_psf;
-    float *d_psf;
-
-    // texture source for the PSF
-    cudaArray_t psfRes = nullptr;
-
-    // initial size of the point spread function
-    const size_t npx, npy, npz;
-    size_t nelem;
-};
+float PSF::estimateBackground() {
+    float sum = thrust::reduce(
+        thrust::device,
+        d_psf, d_psf+nelem,
+        0,
+        thrust::plus<float>()
+    );
+    return sum / nelem;
+}
 
 }
 

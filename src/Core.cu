@@ -17,8 +17,6 @@
 
 namespace DeconvRL {
 
-#define DIVUP(x, y) ((x+y-1)/y)
-
 namespace Core {
 
 namespace RL {

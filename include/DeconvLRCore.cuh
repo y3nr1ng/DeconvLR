@@ -155,7 +155,7 @@ struct Parameters {
  * @see
  */
 void step(
-    float *odata, float *idata,
+    float *odata, const float *idata,
     Core::RL::Parameters &parm
 );
 

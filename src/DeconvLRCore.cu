@@ -621,7 +621,7 @@ private:
 
 template <ConvType type>
 void filter(
-    cufftReal *odata, cufftReal *idata, const cufftComplex *otf,
+    cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
 ) {
     fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::step() +++\n");
@@ -632,7 +632,7 @@ void filter(
     // convert to frequency space
     cudaErrChk(cufftExecR2C(
         parm.fftHandle.forward,
-        idata,
+        const_cast<cufftReal *>(idata),
         buffer
     ));
 
@@ -661,7 +661,7 @@ thrust::multiplies<float> MulfOp;
 }
 
 void step(
-    float *odata, float *idata,
+    float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
     fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
@@ -689,7 +689,7 @@ void step(
      */
 
     // reblur the image
-    filter<ConvType::PLAIN>(odata, const_cast<cufftReal *>(idata), otf, parm);
+    filter<ConvType::PLAIN>(odata, idata, otf, parm);
     //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
     /*
     fprintf(stderr, "B\n");

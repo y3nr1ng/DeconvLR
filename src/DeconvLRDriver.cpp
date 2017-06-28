@@ -3,6 +3,7 @@
 // necessary project headers
 #include "DeconvRLImpl.cuh"
 #include "Helper.cuh"
+#include "DumpData.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
 // standard libraries headers
@@ -85,7 +86,7 @@ void DeconvRL::setVolumeSize(
 
     fprintf(
         stderr,
-        "[INFO] volume size = %ux%ux%u\n",
+        "[INF] volume size = %ux%ux%u\n",
         pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
 }
@@ -97,9 +98,11 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     ImageStack<float> psf(psf_u16);
     fprintf(
         stderr,
-        "[INFO] PSF size = %ldx%ldx%ld\n",
+        "[INF] PSF size = %ldx%ldx%ld\n",
         psf.nx(), psf.ny(), psf.nz()
     );
+
+    DumpData::Host::real("psf_float_dump.tif", psf.data(), psf.nx(), psf.ny(), psf.nz());
 
     /*
      * Generate the OTF.
@@ -107,7 +110,7 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     PSF::PSF psfProc(psf.data(), psf.nx(), psf.ny(), psf.nz());
     psfProc.alignCenter();
 
-    // allocate OTF memory
+    // allocate memory space for OTF
     cudaErrChk(cudaMalloc(
         &pimpl->iterParms.otf,
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
@@ -117,7 +120,7 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
         pimpl->iterParms.otf,
         pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
-    fprintf(stderr, "[INFO] OTF established\n");
+    fprintf(stderr, "[INF] OTF established\n");
 }
 
 void DeconvRL::initialize() {
@@ -197,7 +200,7 @@ void DeconvRL::process(
     /*
      * Copy the data to buffer area along with type casts.
      */
-    fprintf(stderr, "[DEBUG] %ld elements to type cast\n", nelem);
+    fprintf(stderr, "[DBG] %ld elements to type cast\n", nelem);
     Common::ushort2float(
         iterParms.ioBuffer.input,   // output
         d_idata,                    // input
@@ -220,7 +223,7 @@ void DeconvRL::process(
     /*
      * Execute the core functions.
      */
-    const int nIter = 10; //pimpl->iterations;
+    const int nIter = pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
             iterParms.ioBuffer.output,  // output
@@ -230,7 +233,7 @@ void DeconvRL::process(
         // swap A, B buffer
         std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
 
-        fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
+        fprintf(stderr, "[INF] %d/%d\n", iIter, nIter);
     }
 
     // swap back to avoid confusion

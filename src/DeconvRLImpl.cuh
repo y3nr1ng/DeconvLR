@@ -32,7 +32,7 @@ public:
      *
      * @see findCentroid, estimateBackground
      */
-    void alignCenter();
+    void alignCenter(const size_t nx, const size_t ny, const size_t nz = 1);
 
     /**
      * @brief Convert the PSF to OTF.
@@ -47,21 +47,18 @@ public:
      *
      * @see
      */
-    void createOTF(
-        cufftComplex *d_otf,
-        const size_t nx, const size_t ny, const size_t nz = 1
-    );
+    void createOTF(cufftComplex *d_otf);
 
 private:
-    float3 findCentroid();
+    void padPSF(const size_t nx, const size_t ny, const size_t nz);
+    float3 findCentroid(const float cutoff = 0.0f);
     float estimateBackground();
 
     // PSF memory, host side and mirrored device address
-    float *h_psf;
     float *d_psf;
 
-    // initial size of the point spread function
-    const size_t npx, npy, npz;
+    // size of the PSF
+    size_t npx, npy, npz;
     size_t nelem;
 };
 

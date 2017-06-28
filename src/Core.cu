@@ -32,11 +32,6 @@ struct MultiplyAndScale
     : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
     MultiplyAndScale(const float c_)
         : c(c_) {
-        if (type == ConvType::CONJUGATE) {
-            printf("CONJUGATE\n");
-        } else {
-            printf("PLAIN\n");
-        }
     }
 
     __host__ __device__
@@ -57,8 +52,6 @@ void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
 ) {
-    fprintf(stderr, "[DBG] +++ ENTER RL::(anon)::filter() +++\n");
-
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
     cufftComplex *buffer = (cufftComplex *)parm.filterBuffer.complexA;
 
@@ -84,8 +77,6 @@ void filter(
         buffer,
         odata
     ));
-
-    fprintf(stderr, "[DBG] +++ EXIT RL::(anon)::filter() +++\n");
 }
 
 thrust::divides<float> DivfOp;

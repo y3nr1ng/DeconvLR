@@ -52,12 +52,12 @@ void real(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     fprintf(stderr,
-        "[DBG] dump %ldx%ldx%ld real from device to \"%s\"\n",
+        "[DBG] dump %ldx%ldx%ld <real> from device to \"%s\"\n",
         nx, ny, nz, fname.c_str()
     );
 
     CImg<float> data(nx, ny, nz);
-    const size_t size = nx * ny * nz * sizeof(float);
+    const size_t size = data.size() * sizeof(float);
 
     // pinned down the host memory region
     float *d_odata;
@@ -80,12 +80,12 @@ void complex(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     fprintf(stderr,
-        "[DBG] dump %ldx%ldx%ld complex from device to \"%s\"\n",
+        "[DBG] dump %ldx%ldx%ld <complex> from device to \"%s\"\n",
         nx, ny, nz, fname.c_str()
     );
 
     CImg<float> data(nx, ny, nz);
-    const size_t size = nx * ny * nz * sizeof(float);
+    const size_t size = data.size() * sizeof(float);
 
     // pinned down the host memory region
     float *d_odata;
@@ -120,12 +120,12 @@ void real(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     fprintf(stderr,
-        "[DBG] dump %ldx%ldx%ld real from host to \"%s\"\n",
+        "[DBG] dump %ldx%ldx%ld <real> from host to \"%s\"\n",
         nx, ny, nz, fname.c_str()
     );
 
     CImg<float> data(nx, ny, nz);
-    const size_t size = nx * ny * nz * sizeof(float);
+    const size_t size = data.size() * sizeof(float);
 
     // copy to image data region
     std::memcpy(data.data(), h_idata, size);

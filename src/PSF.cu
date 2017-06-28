@@ -113,27 +113,32 @@ void alignCenter_kernel(
 }
 
 PSF::PSF(
-    float *h_psf_,
+    float *h_psf,
     const size_t npx_, const size_t npy_, const size_t npz_
-) : h_psf(h_psf_), npx(npx_), npy(npy_), npz(npz_) {
+) : npx(npx_), npy(npy_), npz(npz_) {
     nelem = npx * npy * npz;
 
-    // pinned down the host memory region
-    cudaErrChk(cudaHostRegister(
-        h_psf,
-        nelem * sizeof(float),
-        cudaHostRegisterMapped
-    ));
-    // retrieve the device address
-    cudaErrChk(cudaHostGetDevicePointer(&d_psf, h_psf, 0));
+    // create PSF memory space on device
+    const size_t size = nelem * sizeof(float);
+    cudaErrChk(cudaMalloc(&d_psf, size));
+    // copy from host to device
+    cudaErrChk(cudaMemcpy(d_psf, h_psf, size, cudaMemcpyHostToDevice));
 }
 
 PSF::~PSF() {
-    cudaErrChk(cudaHostUnregister(h_psf));
+    cudaErrChk(cudaFree(d_psf));
 }
 
-void PSF::alignCenter() {
-    float3 centroid = findCentroid();
+void PSF::alignCenter(const size_t nx, const size_t ny, const size_t nz) {
+    // estimate and remove the background prior to the padding, otherwise the
+    // noise threshold will get diluted, cutoff value is clamped in [0, +inf)
+    const float bkgLvl = estimateBackground();
+
+    if (nx != npx or ny != npy or nz != npz) {
+        padPSF(nx, ny, nz);
+    }
+
+    float3 centroid = findCentroid(bkgLvl);
     fprintf(
         stderr,
         "[INF] centroid = (%.2f, %.2f, %.2f)\n",
@@ -157,10 +162,10 @@ void PSF::alignCenter() {
 
     // copy the data to cudaArray_t
     cudaMemcpy3DParms parms = {0};
-    parms.srcPtr = make_cudaPitchedPtr(h_psf, npx * sizeof(float), npx, npy);
+    parms.srcPtr = make_cudaPitchedPtr(d_psf, npx * sizeof(float), npx, npy);
     parms.dstArray = psfRes;
     parms.extent = extent;
-    parms.kind = cudaMemcpyHostToDevice;
+    parms.kind = cudaMemcpyDeviceToDevice;
     cudaErrChk(cudaMemcpy3D(&parms));
 
     // reconfigure the texture
@@ -204,7 +209,7 @@ void PSF::alignCenter() {
     cudaErrChk(cudaUnbindTexture(psfTexRef));
     cudaErrChk(cudaFreeArray(psfRes));
 
-    DumpData::Host::real("psf_aligned.tif", h_psf, npx, npy, npz);
+    DumpData::Device::real("psf_aligned.tif", d_psf, npx, npy, npz);
 }
 
 void PSF::createOTF(
@@ -219,7 +224,7 @@ void PSF::createOTF(
     // estimate resource requirements
     size_t size;
     cudaErrChk(cufftGetSize3d(otfHdl, nz, ny, nx, CUFFT_R2C, &size));
-    fprintf(stderr, "[DBG] requires %ld bytes to generate an OTF\n", size);
+    fprintf(stderr, "[DBG] require %ld bytes to generate an OTF\n", size);
 
     /*
      * Execute the conversion.
@@ -232,8 +237,27 @@ void PSF::createOTF(
     DumpData::Device::complex("otf_dump.tif", d_otf, nx/2+1, ny, nz);
 }
 
+void PSF::padPSF(const size_t nx, const size_t ny, const size_t nz) {
+    // create new PSF memory space with the larger size
+    float *d_tmp;
+    cudaErrChk(cudaMalloc(
+        &d_tmp,
+        nx * ny * nz * sizeof(float)
+    ));
+
+    // copy the original PSF to the larger space at (0, 0)
+
+    // swap the pointer and free the smaller space
+    std::swap(d_tmp, d_psf);
+
+    // update PSF size
+    npx = nx;
+    npy = ny;
+    npz = nz;
+}
+
 // center the PSF to its potential centroid
-float3 PSF::findCentroid() {
+float3 PSF::findCentroid(const float cutoff) {
     const size_t size = nelem * sizeof(float);
 
     /*
@@ -242,17 +266,18 @@ float3 PSF::findCentroid() {
     float *d_tmp;
     cudaErrChk(cudaMalloc(&d_tmp, size));
     // copy the raw PSF to temporary PSF
-    cudaErrChk(cudaMemcpy(d_tmp, h_psf, size, cudaMemcpyHostToDevice));
+    cudaErrChk(cudaMemcpy(d_tmp, d_psf, size, cudaMemcpyDeviceToDevice));
 
-    // estimate and remove the background, clamp at [0, +inf)
-    const float bkgLvl = estimateBackground();
-    fprintf(stderr, "[INF] background level = %.2f\n", bkgLvl);
-    thrust::transform(
-        thrust::device,
-        d_tmp, d_tmp+nelem,
-        d_tmp,
-        SubConstant(bkgLvl)
-    );
+    // clamp the background if cutoff value is assigned
+    if (cutoff > 0.0f) {
+        fprintf(stderr, "[INF] PSF background cutoff at %.2f\n", cutoff);
+        thrust::transform(
+            thrust::device,
+            d_tmp, d_tmp+nelem,
+            d_tmp,
+            SubConstant(bkgLvl)
+        );
+    }
 
     /*
      * Generate 3-D grid for weighting.

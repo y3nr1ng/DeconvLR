@@ -52,17 +52,17 @@ void real(
 
     // pinned down the host memory region
     float *d_odata;
-    cudaErrChk(cudaHostRegister(h_odata, size, cudaHostRegisterMapped));
-    cudaErrChk(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
+    cudaErrChk(cudaHostRegister(data.data(), size, cudaHostRegisterMapped));
+    cudaErrChk(cudaHostGetDevicePointer(&d_odata, data.data(), 0));
 
     // copy from device to host
     cudaErrChk(cudaMemcpy(d_odata, d_idata, dataSize, cudaMemcpyDeviceToHost));
 
     // release the resources
-    cudaErrChk(cudaHostUnregister(h_odata));
+    cudaErrChk(cudaHostUnregister(data.data()));
 
     // save the result to file
-    data.saveAs(fname.c_str());
+    data.save_tiff(fname.c_str());
 }
 
 void complex(
@@ -75,8 +75,8 @@ void complex(
 
     // pinned down the host memory region
     float *d_odata;
-    cudaErrChk(cudaHostRegister(h_odata, size, cudaHostRegisterMapped));
-    cudaErrChk(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
+    cudaErrChk(cudaHostRegister(data.data(), size, cudaHostRegisterMapped));
+    cudaErrChk(cudaHostGetDevicePointer(&d_odata, data.data(), 0));
 
     dim3 nthreads(16, 16, 4);
     dim3 nblocks(
@@ -90,10 +90,10 @@ void complex(
     cudaErrChk(cudaPeekAtLastError());
 
     // release the resources
-    cudaErrChk(cudaHostUnregister(h_odata));
+    cudaErrChk(cudaHostUnregister(data.data()));
 
     // save the result to file
-    data.saveAs(fname.c_str());
+    data.save_tiff(fname.c_str());
 }
 
 }

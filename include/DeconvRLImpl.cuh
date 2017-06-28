@@ -10,6 +10,8 @@
 #include <cstdint>
 // system headers
 
+namespace DeconvRL {
+
 namespace PSF {
 
 /*
@@ -190,11 +192,7 @@ namespace Common {
 
 void ushort2float(float *odata, const uint16_t *idata, const size_t nelem);
 
-void dumpDeviceReal(
-    float *h_odata,
-    const cufftReal *d_idata,
-    const size_t nx, const size_t ny, const size_t nz
-);
+}
 
 }
 

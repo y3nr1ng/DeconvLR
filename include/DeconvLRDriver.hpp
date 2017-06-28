@@ -9,6 +9,8 @@
 #include <memory>
 // system headers
 
+namespace DeconvRL {
+
 class DeconvLR {
 public:
     DeconvLR();
@@ -33,5 +35,7 @@ private:
     struct Impl;
     std::unique_ptr<Impl> pimpl;
 };
+
+}
 
 #endif

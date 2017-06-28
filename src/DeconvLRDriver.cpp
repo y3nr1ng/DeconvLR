@@ -1,7 +1,7 @@
 // corresponded header file
 #include "DeconvLRDriver.hpp"
 // necessary project headers
-#include "DeconvLRCore.cuh"
+#include "DeconvRLImpl.cuh"
 #include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
@@ -9,6 +9,8 @@
 #include <exception>
 #include <cstdio>
 // system headers
+
+namespace DeconvRL {
 
 struct DeconvLR::Impl {
     Impl()
@@ -94,8 +96,6 @@ void DeconvLR::setVolumeSize(
  * ===========
  */
 void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
-    fprintf(stderr, "[DEBUG] +++ ENTER setPSF() +++\n");
-
     /*
      * Ensure we are working with floating points.
      */
@@ -107,73 +107,22 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     );
 
     /*
-     * Align the PSF to center.
+     * Generate the OTF.
      */
-    PSF::removeBackground(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    float3 centroid = PSF::findCentroid(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    fprintf(
-        stderr,
-        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
-        centroid.x, centroid.y, centroid.z
-    );
-
-    /*
-     * Shift the PSF around the centroid.
-     */
-    PSF::bindData(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    PSF::alignCenter(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz(),
-        centroid
-    );
-    fprintf(stderr, "[DEBUG] PSF aligned to center\n");
-    PSF::release();
-
-    psf.saveAs("psf_aligned.tif");
-
-    /*
-     * Generate OTF texture.
-     */
-    OTF::fromPSF(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    fprintf(stderr, "[DEBUG] template OTF generated\n");
+    PSF::PSF psf(psf.data(), psf.nx(), psf.ny(), psf.nz());
+    psf.alignCenter();
 
     // allocate OTF memory
     cudaErrChk(cudaMalloc(
         &pimpl->iterParms.otf,
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
-    // start the interpolation
-    OTF::interpolate(
+    // create the OTF
+    psf.createOTF(
         pimpl->iterParms.otf,
-        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
-        psf.nx()/2+1, psf.ny(), psf.nz(),
-        pimpl->voxelSize.raw.x, pimpl->voxelSize.raw.y, pimpl->voxelSize.raw.z,
-        pimpl->voxelSize.psf.x, pimpl->voxelSize.psf.y, pimpl->voxelSize.psf.z
+        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
-    OTF::release();
     fprintf(stderr, "[INFO] OTF established\n");
-
-    CImg<float> otfCalc(pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z);
-    OTF::dumpComplex(
-        otfCalc.data(),
-        pimpl->iterParms.otf,
-        otfCalc.width(), otfCalc.height(), otfCalc.depth()
-    );
-    otfCalc.save_tiff("otf_interp.tif");
-
-	fprintf(stderr, "[DEBUG] +++ EXIT setPSF() +++\n");
 }
 
 void DeconvLR::initialize() {
@@ -298,4 +247,6 @@ void DeconvLR::process(
         nelem * sizeof(cufftReal),
         cudaMemcpyDeviceToHost
     ));
+}
+
 }

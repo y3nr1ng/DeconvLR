@@ -212,11 +212,16 @@ void DeconvLR::initialize() {
      /*
       * Allocate device staging area.
       */
-     // padded complex size is greater or equal to the original real size
-     const size_t wsSize =
-         (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
-     cudaErrChk(cudaMalloc((void **)&iterParms.bufferA, wsSize));
-     cudaErrChk(cudaMalloc((void **)&iterParms.bufferB, wsSize));
+     // IO buffer
+     size_t size =
+         volumeSize.x * volumeSize.y * volumeSize.z * sizeof(cufftReal);
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.input, size));
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.output, size));
+
+     // FFT Buffer
+     size =
+        (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
+     cudaErrChk(cudaMalloc((void **)&iterParms.FFTBuffer.complexA, size));
 }
 
 //TODO scale output from float to uint16
@@ -243,8 +248,8 @@ void DeconvLR::process(
      */
     fprintf(stderr, "[DEBUG] %ld elements to type cast\n", nelem);
     Common::ushort2float(
-        iterParms.bufferA, // output
-        d_idata,           // input
+        iterParms.ioBuffer.input,   // output
+        d_idata,                    // input
         nelem
     );
 
@@ -259,20 +264,22 @@ void DeconvLR::process(
     const int nIter = 1; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
-            iterParms.bufferB,   // output
-            iterParms.bufferA,   // input
+            iterParms.ioBuffer.output,  // output
+            iterParms.ioBuffer.input,   // input
             iterParms
         );
         // swap A, B buffer
-        std::swap(iterParms.bufferA, iterParms.bufferB);
+        std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
 
         fprintf(stderr, "[DEBUG] %d/%d\n", iIter, nIter);
     }
 
+    // swap back to avoid confusion
+    std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),
-        iterParms.bufferA,
+        iterParms.ioBuffer.output,
         nelem * sizeof(cufftReal),
         cudaMemcpyDeviceToHost
     ));

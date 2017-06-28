@@ -129,10 +129,19 @@ struct Parameters {
     } fftHandle;
 
     /**
+     * I/O buffer to interface with the host.
+     */
+    struct {
+        cufftReal *input;
+        cufftReal *output;
+    } ioBuffer;
+
+    /**
      * Intermediate buffers, maximum size is used, aka padded input data size.
      */
-    cufftReal *bufferA;
-    cufftReal *bufferB;
+    struct {
+        cufftComplex *complexA;
+    } FFTBuffer;
 };
 
 /**
@@ -176,6 +185,12 @@ void step(
 namespace Common {
 
 void ushort2float(float *odata, const uint16_t *idata, const size_t nelem);
+
+void dumpDeviceReal(
+    float *h_odata,
+    const cufftReal *d_idata,
+    const size_t nx, const size_t ny, const size_t nz
+);
 
 }
 

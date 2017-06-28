@@ -599,6 +599,11 @@ struct MultiplyAndScale
     : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
     MultiplyAndScale(const float c_)
         : c(c_) {
+        if (type == ConvType::CONJUGATE) {
+            printf("CONJUGATE\n");
+        } else {
+            printf("PLAIN\n");
+        }
     }
 
     __host__ __device__
@@ -622,26 +627,15 @@ void filter(
     fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::step() +++\n");
 
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
-    cufftComplex *buffer = (cufftComplex *)parm.bufferA;
+    cufftComplex *buffer = (cufftComplex *)parm.FFTBuffer.complexA;
 
     // convert to frequency space
     cudaErrChk(cufftExecR2C(
         parm.fftHandle.forward,
-        idata,      // input
-        buffer      // output
+        idata,
+        buffer
     ));
 
-    /*
-    CImg<float> dump(parm.nx/2+1, parm.ny, parm.nz);
-    OTF::dumpComplex(
-        dump.data(),
-        buffer,
-        dump.width(), dump.height(), dump.depth()
-    );
-    dump.save_tiff("data_freq.tif");
-    */
-
-    /*
     // element-wise multiplication and scale down
     thrust::transform(
         thrust::device,
@@ -650,13 +644,12 @@ void filter(
         buffer,                     // output sequence
         MultiplyAndScale<type>(1.0f/nelem)
     );
-    */
 
     // convert back to real space
     cudaErrChk(cufftExecC2R(
         parm.fftHandle.reverse,
-        buffer,     // input
-        odata       // output
+        buffer,
+        odata
     ));
 
     fprintf(stderr, "[DEBUG] +++ EXIT RL::(anon)::step() +++\n");
@@ -673,23 +666,20 @@ void step(
 ) {
     fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
 
-    //const size_t nelem = parm.nelem;
-    //cufftReal *buffer = (cufftReal *)parm.bufferA;
+    const size_t nelem = parm.nelem;
+    cufftReal *buffer = (cufftReal *)parm.FFTBuffer.complexA;
 
-    //cufftComplex *otf = parm.otf;
+    cufftComplex *otf = parm.otf;
 
-    cudaErrChk(cufftExecR2C(
-        parm.fftHandle.forward,
-        idata,      // input
-        (cufftComplex *)parm.bufferB      // output
-    ));
-
-    cudaErrChk(cufftExecC2R(
-        parm.fftHandle.reverse,
-        (cufftComplex *)parm.bufferB,     // input
-        odata       // output
-    ));
-
+    /*
+    CImg<float> dump(parm.nx, parm.ny, parm.nz);
+    Common::dumpDeviceReal(
+        dump.data(),
+        odata,
+        dump.width(), dump.height(), dump.depth()
+    );
+    dump.save_tiff("dump.tif");
+    */
 
     /*
      * \hat{f_{k+1}} =
@@ -699,7 +689,7 @@ void step(
      */
 
     // reblur the image
-    //filter<ConvType::PLAIN>(odata, const_cast<cufftReal *>(idata), otf, parm);
+    filter<ConvType::PLAIN>(odata, const_cast<cufftReal *>(idata), otf, parm);
     //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
     /*
     fprintf(stderr, "B\n");
@@ -776,6 +766,25 @@ void ushort2float(float *odata, const uint16_t *idata, const size_t nelem) {
         odata,                  // output
         ToFloat<uint16_t>()
     );
+}
+
+void dumpDeviceReal(
+    float *h_odata,
+    const cufftReal *d_idata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    const size_t dataSize = nx * ny * nz * sizeof(float);
+
+    // pinned down the host memory region
+    float *d_odata;
+    cudaErrChk(cudaHostRegister(h_odata, dataSize, cudaHostRegisterMapped));
+    cudaErrChk(cudaHostGetDevicePointer(&d_odata, h_odata, 0));
+
+    // copy from device to host
+    cudaErrChk(cudaMemcpy(d_odata, d_idata, dataSize, cudaMemcpyDeviceToHost));
+
+    // release the resources
+    cudaErrChk(cudaHostUnregister(h_odata));
 }
 
 }

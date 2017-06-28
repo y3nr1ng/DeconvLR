@@ -18,6 +18,7 @@
 using namespace cimg_library;
 // standard libraries headers
 #include <cstdint>
+#include <exception>
 // system headers
 
 namespace DeconvRL {
@@ -85,6 +86,32 @@ private:
 };
 
 __global__
+void simpleClone_kenel(
+    float *d_tmp,
+    const size_t nx, const size_t ny, const size_t nz,
+    const float *d_psf,
+    const size_t npx, const size_t npy, const size_t npz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    int oidx = iz * (nx*ny) + iy * nx + ix;
+    // rest of the space is filled with zero
+    if (ix >= npx or iy >= npy or iz >= npz) {
+        d_tmp[oidx] = 0.0f;
+    } else {
+        int iidx = iz * (npx*npy) + iy * npx + ix;
+        d_tmp[oidx] = d_psf[iidx];
+    }
+}
+
+__global__
 void alignCenter_kernel(
     float *odata,
     const size_t nx, const size_t ny, const size_t nz,
@@ -130,20 +157,17 @@ PSF::~PSF() {
 }
 
 void PSF::alignCenter(const size_t nx, const size_t ny, const size_t nz) {
-    // estimate and remove the background prior to the padding, otherwise the
-    // noise threshold will get diluted, cutoff value is clamped in [0, +inf)
-    const float bkgLvl = estimateBackground();
-
-    if (nx != npx or ny != npy or nz != npz) {
-        padPSF(nx, ny, nz);
-    }
-
-    float3 centroid = findCentroid(bkgLvl);
+    float3 centroid = findCentroid();
     fprintf(
         stderr,
         "[INF] centroid = (%.2f, %.2f, %.2f)\n",
         centroid.x, centroid.y, centroid.z
     );
+
+    // simple clone is performed, so we can reuse the centroid location
+    if (nx != npx or ny != npy or nz != npz) {
+        padPSF(nx, ny, nz);
+    }
 
     /*
      * Bind the data source to the texture.
@@ -212,18 +236,15 @@ void PSF::alignCenter(const size_t nx, const size_t ny, const size_t nz) {
     DumpData::Device::real("psf_aligned.tif", d_psf, npx, npy, npz);
 }
 
-void PSF::createOTF(
-    cufftComplex *d_otf,
-    const size_t nx, const size_t ny, const size_t nz
-) {
+void PSF::createOTF(cufftComplex *d_otf) {
     /*
      * Prepare FFT environment.
      */
     cufftHandle otfHdl;
-    cudaErrChk(cufftPlan3d(&otfHdl, nz, ny, nx, CUFFT_R2C));
+    cudaErrChk(cufftPlan3d(&otfHdl, npz, npy, npx, CUFFT_R2C));
     // estimate resource requirements
     size_t size;
-    cudaErrChk(cufftGetSize3d(otfHdl, nz, ny, nx, CUFFT_R2C, &size));
+    cudaErrChk(cufftGetSize3d(otfHdl, npz, npy, npx, CUFFT_R2C, &size));
     fprintf(stderr, "[DBG] require %ld bytes to generate an OTF\n", size);
 
     /*
@@ -234,50 +255,29 @@ void PSF::createOTF(
     // release FFT resource
     cudaErrChk(cufftDestroy(otfHdl));
 
-    DumpData::Device::complex("otf_dump.tif", d_otf, nx/2+1, ny, nz);
-}
-
-void PSF::padPSF(const size_t nx, const size_t ny, const size_t nz) {
-    // create new PSF memory space with the larger size
-    float *d_tmp;
-    cudaErrChk(cudaMalloc(
-        &d_tmp,
-        nx * ny * nz * sizeof(float)
-    ));
-
-    // copy the original PSF to the larger space at (0, 0)
-
-    // swap the pointer and free the smaller space
-    std::swap(d_tmp, d_psf);
-
-    // update PSF size
-    npx = nx;
-    npy = ny;
-    npz = nz;
+    DumpData::Device::complex("otf_dump.tif", d_otf, npx/2+1, npy, npz);
 }
 
 // center the PSF to its potential centroid
-float3 PSF::findCentroid(const float cutoff) {
-    const size_t size = nelem * sizeof(float);
-
+float3 PSF::findCentroid() {
     /*
      * Create temporary PSF to find the centroid.
      */
     float *d_tmp;
+    const size_t size = nelem * sizeof(float);
     cudaErrChk(cudaMalloc(&d_tmp, size));
     // copy the raw PSF to temporary PSF
     cudaErrChk(cudaMemcpy(d_tmp, d_psf, size, cudaMemcpyDeviceToDevice));
 
-    // clamp the background if cutoff value is assigned
-    if (cutoff > 0.0f) {
-        fprintf(stderr, "[INF] PSF background cutoff at %.2f\n", cutoff);
-        thrust::transform(
-            thrust::device,
-            d_tmp, d_tmp+nelem,
-            d_tmp,
-            SubConstant(bkgLvl)
-        );
-    }
+    // background value is clamped in [0, +inf)
+    const float bkgVal = estimateBackground();
+    fprintf(stderr, "[INF] PSF background value is %.2f\n", bkgVal);
+    thrust::transform(
+        thrust::device,
+        d_tmp, d_tmp+nelem,
+        d_tmp,
+        SubConstant(bkgVal)
+    );
 
     /*
      * Generate 3-D grid for weighting.
@@ -321,6 +321,44 @@ float PSF::estimateBackground() {
         thrust::plus<float>()
     );
     return sum/nelem;
+}
+
+void PSF::padPSF(const size_t nx, const size_t ny, const size_t nz) {
+    // verify the size requirement
+    if (nx < npx or ny < npy or nz < npz) {
+        throw std::range_error(
+            "volume has to be greater or equal than the original PSF"
+        );
+    }
+
+    // create new PSF memory space with the larger size
+    float *d_tmp;
+    cudaErrChk(cudaMalloc(
+        &d_tmp,
+        nx * ny * nz * sizeof(float)
+    ));
+
+    // copy the original PSF to the larger space at (0, 0)
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(nx, nthreads.x), DIVUP(ny, nthreads.y), DIVUP(nz, nthreads.z)
+    );
+    simpleClone_kenel<<<nblocks, nthreads>>>(
+        d_tmp,
+        nx, ny, nz,
+        d_psf,
+        npx, npy, npz
+    );
+    // swap the pointer and free the smaller space
+    std::swap(d_tmp, d_psf);
+    cudaErrChk(cudaFree(d_tmp));
+
+    // update PSF size
+    npx = nx;
+    npy = ny;
+    npz = nz;
+    nelem = npx * npy * npz;
+    fprintf(stderr, "[DBG] update PSF size is %ldx%ldx%ld\n", npx, npy, npz);
 }
 
 }

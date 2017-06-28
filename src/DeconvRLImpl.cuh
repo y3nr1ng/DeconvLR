@@ -50,9 +50,9 @@ public:
     void createOTF(cufftComplex *d_otf);
 
 private:
-    void padPSF(const size_t nx, const size_t ny, const size_t nz);
-    float3 findCentroid(const float cutoff = 0.0f);
+    float3 findCentroid();
     float estimateBackground();
+    void padPSF(const size_t nx, const size_t ny, const size_t nz);
 
     // PSF memory, host side and mirrored device address
     float *d_psf;

@@ -91,6 +91,7 @@ void DeconvRL::setVolumeSize(
     );
 }
 
+//TODO remove ImageStack dependency
 void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Ensure we are working with floating points.
@@ -102,13 +103,13 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
         psf.nx(), psf.ny(), psf.nz()
     );
 
-    DumpData::Host::real("psf_float_dump.tif", psf.data(), psf.nx(), psf.ny(), psf.nz());
-
     /*
      * Generate the OTF.
      */
     PSF::PSF psfProc(psf.data(), psf.nx(), psf.ny(), psf.nz());
-    psfProc.alignCenter();
+    psfProc.alignCenter(
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
+    );
 
     // allocate memory space for OTF
     cudaErrChk(cudaMalloc(
@@ -116,10 +117,7 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
     // create the OTF
-    psfProc.createOTF(
-        pimpl->iterParms.otf,
-        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
-    );
+    psfProc.createOTF(pimpl->iterParms.otf);
     fprintf(stderr, "[INF] OTF established\n");
 }
 

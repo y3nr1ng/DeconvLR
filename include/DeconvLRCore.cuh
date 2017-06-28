@@ -141,7 +141,11 @@ struct Parameters {
      */
     struct {
         cufftComplex *complexA;
-    } FFTBuffer;
+    } filterBuffer;
+
+    struct {
+        cufftReal *realA;
+    } RLBuffer;
 };
 
 /**
@@ -156,7 +160,7 @@ struct Parameters {
  */
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parm
+    Core::RL::Parameters &parms
 );
 
 }
@@ -175,7 +179,7 @@ namespace Biggs {
  */
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parm
+    Core::RL::Parameters &parms
 );
 
 }

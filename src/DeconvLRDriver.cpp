@@ -212,16 +212,23 @@ void DeconvLR::initialize() {
      /*
       * Allocate device staging area.
       */
+      size_t realSize =
+          volumeSize.x * volumeSize.y * volumeSize.z * sizeof(cufftReal);
+      size_t complexSize =
+          (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
+
+     // template
+     cudaErrChk(cudaMalloc((void **)&iterParms.raw, realSize));
+
      // IO buffer
-     size_t size =
-         volumeSize.x * volumeSize.y * volumeSize.z * sizeof(cufftReal);
-     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.input, size));
-     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.output, size));
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.input, realSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.output, realSize));
 
      // FFT Buffer
-     size =
-        (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
-     cudaErrChk(cudaMalloc((void **)&iterParms.FFTBuffer.complexA, size));
+     cudaErrChk(cudaMalloc((void **)&iterParms.filterBuffer.complexA, complexSize));
+
+     // RL Buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.RLBuffer.realA, realSize));
 }
 
 //TODO scale output from float to uint16
@@ -253,6 +260,14 @@ void DeconvLR::process(
         nelem
     );
 
+    // duplicate the to store a copy of raw data
+    cudaErrChk(cudaMemcpy(
+        iterParms.raw,
+        iterParms.ioBuffer.input,
+        nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
+
     /*
      * Release the pinned memory region.
      */
@@ -261,7 +276,7 @@ void DeconvLR::process(
     /*
      * Execute the core functions.
      */
-    const int nIter = 1; //pimpl->iterations;
+    const int nIter = 10; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
             iterParms.ioBuffer.output,  // output

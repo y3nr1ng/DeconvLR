@@ -624,10 +624,10 @@ void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
 ) {
-    fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::step() +++\n");
+    fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::filter() +++\n");
 
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
-    cufftComplex *buffer = (cufftComplex *)parm.FFTBuffer.complexA;
+    cufftComplex *buffer = (cufftComplex *)parm.filterBuffer.complexA;
 
     // convert to frequency space
     cudaErrChk(cufftExecR2C(
@@ -652,7 +652,7 @@ void filter(
         odata
     ));
 
-    fprintf(stderr, "[DEBUG] +++ EXIT RL::(anon)::step() +++\n");
+    fprintf(stderr, "[DEBUG] +++ EXIT RL::(anon)::filter() +++\n");
 }
 
 thrust::divides<float> DivfOp;
@@ -662,14 +662,14 @@ thrust::multiplies<float> MulfOp;
 
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parm
+    Core::RL::Parameters &parms
 ) {
     fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
 
-    const size_t nelem = parm.nelem;
-    cufftReal *buffer = (cufftReal *)parm.FFTBuffer.complexA;
+    const size_t nelem = parms.nelem;
+    cufftReal *buffer = parms.RLBuffer.realA;
 
-    cufftComplex *otf = parm.otf;
+    cufftComplex *otf = parms.otf;
 
     /*
     CImg<float> dump(parm.nx, parm.ny, parm.nz);
@@ -689,31 +689,29 @@ void step(
      */
 
     // reblur the image
-    filter<ConvType::PLAIN>(odata, idata, otf, parm);
-    //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
-    /*
+    fprintf(stderr, "A\n");
+    filter<ConvType::PLAIN>(buffer, idata, otf, parms);
     fprintf(stderr, "B\n");
     // error
     thrust::transform(
         thrust::device,
-        parm.raw,  parm.raw+nelem,  // first input sequence
-        buffer,                     // second input sequence
-        buffer,                     // output sequence
+        parms.raw,  parms.raw+nelem,
+        buffer,
+        buffer, // output
         DivfOp
     );
     fprintf(stderr, "C\n");
-    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parm);
+    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parms);
     fprintf(stderr, "D\n");
     // latent image
     thrust::transform(
         thrust::device,
-        idata, idata+nelem,         // first input sequence
-        buffer,                     // second input sequence
-        odata,                      // output sequence
+        idata, idata+nelem,
+        buffer,
+        odata,  // output
         MulfOp
     );
     fprintf(stderr, "E\n");
-    */
 
     fprintf(stderr, "[DEBUG] +++ EXIT RL::step() +++\n");
 }

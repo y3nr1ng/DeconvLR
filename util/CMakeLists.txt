@@ -7,7 +7,7 @@ include_directories ("${PROJECT_SOURCE_DIR}/include" "/opt/X11/include")
 
 # generate the executable
 add_executable (deconvrl_util ${SOURCES})
-target_link_libraries (deconvrl_util LINK_PUBLIC deconvlr)
+target_link_libraries (deconvrl_util LINK_PUBLIC deconvrl)
 
 # drop the suffix
 set_target_properties(deconvrl_util PROPERTIES

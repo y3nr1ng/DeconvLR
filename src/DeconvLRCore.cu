@@ -616,19 +616,22 @@ private:
 
 template <ConvType type>
 void filter(
-    float *odata, float *idataA, const cufftComplex *idataB,
+    cufftReal *odata, cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
 ) {
+    fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::step() +++\n");
+
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
     cufftComplex *buffer = (cufftComplex *)parm.bufferA;
 
     // convert to frequency space
     cudaErrChk(cufftExecR2C(
         parm.fftHandle.forward,
-        idataA,  // input
-        buffer                          // output
+        idata,      // input
+        buffer      // output
     ));
 
+    /*
     CImg<float> dump(parm.nx/2+1, parm.ny, parm.nz);
     OTF::dumpComplex(
         dump.data(),
@@ -636,22 +639,27 @@ void filter(
         dump.width(), dump.height(), dump.depth()
     );
     dump.save_tiff("data_freq.tif");
+    */
 
+    /*
     // element-wise multiplication and scale down
     thrust::transform(
         thrust::device,
         buffer, buffer+nelem,       // first input sequence
-        idataB,                     // second input sequence
+        otf,                        // second input sequence
         buffer,                     // output sequence
         MultiplyAndScale<type>(1.0f/nelem)
     );
+    */
 
     // convert back to real space
     cudaErrChk(cufftExecC2R(
         parm.fftHandle.reverse,
-        buffer,                     // input
-        odata                       // output
+        buffer,     // input
+        odata       // output
     ));
+
+    fprintf(stderr, "[DEBUG] +++ EXIT RL::(anon)::step() +++\n");
 }
 
 thrust::divides<float> DivfOp;
@@ -660,15 +668,28 @@ thrust::multiplies<float> MulfOp;
 }
 
 void step(
-    float *odata, const float *idata,
+    float *odata, float *idata,
     Core::RL::Parameters &parm
 ) {
     fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
 
-    const size_t nelem = parm.nelem;
-    cufftReal *buffer = (cufftReal *)parm.bufferA;
+    //const size_t nelem = parm.nelem;
+    //cufftReal *buffer = (cufftReal *)parm.bufferA;
 
-    cufftComplex *otf = parm.otf;
+    //cufftComplex *otf = parm.otf;
+
+    cudaErrChk(cufftExecR2C(
+        parm.fftHandle.forward,
+        idata,      // input
+        (cufftComplex *)parm.bufferB      // output
+    ));
+
+    cudaErrChk(cufftExecC2R(
+        parm.fftHandle.reverse,
+        (cufftComplex *)parm.bufferB,     // input
+        odata       // output
+    ));
+
 
     /*
      * \hat{f_{k+1}} =
@@ -677,10 +698,8 @@ void step(
      *     \right)
      */
 
-    fprintf(stderr, "A\n");
-
     // reblur the image
-    filter<ConvType::PLAIN>(odata, const_cast<float *>(idata), otf, parm);
+    //filter<ConvType::PLAIN>(odata, const_cast<cufftReal *>(idata), otf, parm);
     //filter<ConvType::PLAIN>(buffer, idata, otf, parm);
     /*
     fprintf(stderr, "B\n");

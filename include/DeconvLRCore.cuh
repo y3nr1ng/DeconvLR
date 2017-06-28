@@ -131,8 +131,8 @@ struct Parameters {
     /**
      * Intermediate buffers, maximum size is used, aka padded input data size.
      */
-    void *bufferA;
-    void *bufferB;
+    cufftReal *bufferA;
+    cufftReal *bufferB;
 };
 
 /**
@@ -146,7 +146,7 @@ struct Parameters {
  * @see
  */
 void step(
-    float *odata, const float *idata,
+    float *odata, float *idata,
     Core::RL::Parameters &parm
 );
 

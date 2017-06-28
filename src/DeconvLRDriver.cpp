@@ -215,8 +215,8 @@ void DeconvLR::initialize() {
      // padded complex size is greater or equal to the original real size
      const size_t wsSize =
          (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
-     cudaErrChk(cudaMalloc(&iterParms.bufferA, wsSize));
-     cudaErrChk(cudaMalloc(&iterParms.bufferB, wsSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.bufferA, wsSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.bufferB, wsSize));
 }
 
 //TODO scale output from float to uint16
@@ -243,8 +243,8 @@ void DeconvLR::process(
      */
     fprintf(stderr, "[DEBUG] %ld elements to type cast\n", nelem);
     Common::ushort2float(
-        (float *)iterParms.bufferA, // output
-        d_idata,                    // input
+        iterParms.bufferA, // output
+        d_idata,           // input
         nelem
     );
 
@@ -259,8 +259,8 @@ void DeconvLR::process(
     const int nIter = 1; //pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
         Core::RL::step(
-            (float *)iterParms.bufferB,         // output
-            (const float *)iterParms.bufferA,   // input
+            iterParms.bufferB,   // output
+            iterParms.bufferA,   // input
             iterParms
         );
         // swap A, B buffer
@@ -273,7 +273,7 @@ void DeconvLR::process(
     cudaErrChk(cudaMemcpy(
         odata.data(),
         iterParms.bufferA,
-        nelem * sizeof(float),
+        nelem * sizeof(cufftReal),
         cudaMemcpyDeviceToHost
     ));
 }

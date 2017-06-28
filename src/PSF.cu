@@ -112,9 +112,9 @@ void alignCenter_kernel(
 }
 
 PSF::PSF(
-    float *h_psf,
+    float *h_psf_,
     const size_t npx_, const size_t npy_, const size_t npz_
-) : npx(npx_), npy(npy_), npz(npz_) {
+) : h_psf(h_psf_), npx(npx_), npy(npy_), npz(npz_) {
     nelem = npx * npy * npz;
 
     // pinned down the host memory region
@@ -247,6 +247,7 @@ float3 PSF::findCentroid() {
     const float bkgLvl = estimateBackground();
     fprintf(stderr, "[INFO] background level = %.2f\n", bkgLvl);
     thrust::transform(
+        thrust::device, 
         d_tmp, d_tmp+nelem,
         d_tmp,
         SubConstant(bkgLvl)

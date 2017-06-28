@@ -18,14 +18,25 @@ class PSF {
 public:
     PSF(
         float *h_psf,
-        const size_t npx_, const size_t npy_, const size_t npz_
+        const size_t npx, const size_t npy, const size_t npz = 1
     );
     ~PSF();
 
+    /**
+     * @brief Center the centroid of the provided PSF.
+     *
+     * The method calls upon the the estimateBackground method to estimate and
+     * remove the potential bacground noises by its mean. Later, centroid of the
+     * PSF is calculated and used to circular shift the original PSF to its
+     * align with its center.
+     *
+     * @see findCentroid, estimateBackground
+     */
     void alignCenter();
+
     void createOTF(
         cufftComplex *d_otf,
-        const size_t nx, const size_t ny, const size_t nz
+        const size_t nx, const size_t ny, const size_t nz = 1
     );
 
 private:

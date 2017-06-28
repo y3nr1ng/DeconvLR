@@ -284,8 +284,6 @@ float3 PSF::findCentroid() {
     // free the weight computation resources
     cudaErrChk(cudaFree(d_grid));
     cudaErrChk(cudaFree(d_tmp));
-    // unregsiter host memory region
-    cudaErrChk(cudaHostUnregister(h_psf));
 
     return centroid;
 }
@@ -297,7 +295,7 @@ float PSF::estimateBackground() {
         0,
         thrust::plus<float>()
     );
-    return sum / nelem;
+    return sum/nelem;
 }
 
 }

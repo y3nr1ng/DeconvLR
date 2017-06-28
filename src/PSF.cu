@@ -26,6 +26,7 @@ namespace PSF {
 
 namespace {
 
+cudaArray_t psfRes = nullptr;
 texture<float, cudaTextureType3D, cudaReadModeElementType> psfTexRef;
 
 struct SubConstant
@@ -172,7 +173,7 @@ void PSF::alignCenter() {
     psfTexRef.addressMode[2] = cudaAddressModeWrap;
 
     // start the binding
-    cudaErrChk(cudaBindTextureToArray(psfTexRef, psfRes, desc));
+    cudaErrChk(cudaBindTextureToArray(psfTexRef, psfRes));
 
     /*
      * Execute the alignment kernel.
@@ -247,7 +248,7 @@ float3 PSF::findCentroid() {
     const float bkgLvl = estimateBackground();
     fprintf(stderr, "[INFO] background level = %.2f\n", bkgLvl);
     thrust::transform(
-        thrust::device, 
+        thrust::device,
         d_tmp, d_tmp+nelem,
         d_tmp,
         SubConstant(bkgLvl)

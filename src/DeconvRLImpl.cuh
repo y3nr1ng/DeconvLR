@@ -47,9 +47,6 @@ private:
     float *h_psf;
     float *d_psf;
 
-    // texture source for the PSF
-    cudaArray_t psfRes = nullptr;
-
     // initial size of the point spread function
     const size_t npx, npy, npz;
     size_t nelem;

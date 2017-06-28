@@ -136,7 +136,7 @@ void PSF::alignCenter() {
     float3 centroid = findCentroid();
     fprintf(
         stderr,
-        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
+        "[INF] centroid = (%.2f, %.2f, %.2f)\n",
         centroid.x, centroid.y, centroid.z
     );
 
@@ -184,7 +184,7 @@ void PSF::alignCenter() {
     );
     // offset
     const float3 offset = centroid - center;
-    fprintf(stderr, "[DEBUG] offset = (%.2f, %.2f, %.2f)\n", offset.x, offset.y, offset.z);
+    fprintf(stderr, "[DBG] offset = (%.2f, %.2f, %.2f)\n", offset.x, offset.y, offset.z);
 
     // begin resample the kernel
     dim3 nthreads(16, 16, 4);
@@ -219,7 +219,7 @@ void PSF::createOTF(
     // estimate resource requirements
     size_t size;
     cudaErrChk(cufftGetSize3d(otfHdl, nz, ny, nx, CUFFT_R2C, &size));
-    fprintf(stderr, "[DEBUG] requires %ld bytes to generate an OTF\n", size);
+    fprintf(stderr, "[DBG] requires %ld bytes to generate an OTF\n", size);
 
     /*
      * Execute the conversion.
@@ -246,7 +246,7 @@ float3 PSF::findCentroid() {
 
     // estimate and remove the background, clamp at [0, +inf)
     const float bkgLvl = estimateBackground();
-    fprintf(stderr, "[INFO] background level = %.2f\n", bkgLvl);
+    fprintf(stderr, "[INF] background level = %.2f\n", bkgLvl);
     thrust::transform(
         thrust::device,
         d_tmp, d_tmp+nelem,

@@ -115,7 +115,7 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     // create the OTF
     psfProc.createOTF(
         pimpl->iterParms.otf,
-        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
     fprintf(stderr, "[INFO] OTF established\n");
 }

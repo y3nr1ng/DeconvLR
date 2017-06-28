@@ -57,7 +57,7 @@ void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
 ) {
-    fprintf(stderr, "[DEBUG] +++ ENTER RL::(anon)::filter() +++\n");
+    fprintf(stderr, "[DBG] +++ ENTER RL::(anon)::filter() +++\n");
 
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
     cufftComplex *buffer = (cufftComplex *)parm.filterBuffer.complexA;
@@ -85,7 +85,7 @@ void filter(
         odata
     ));
 
-    fprintf(stderr, "[DEBUG] +++ EXIT RL::(anon)::filter() +++\n");
+    fprintf(stderr, "[DBG] +++ EXIT RL::(anon)::filter() +++\n");
 }
 
 thrust::divides<float> DivfOp;
@@ -97,7 +97,7 @@ void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parms
 ) {
-    fprintf(stderr, "[DEBUG] +++ ENTER RL::step() +++\n");
+    fprintf(stderr, "[DBG] +++ ENTER RL::step() +++\n");
 
     const size_t nelem = parms.nelem;
     cufftReal *buffer = parms.RLBuffer.realA;
@@ -112,9 +112,9 @@ void step(
      */
 
     // reblur the image
-    fprintf(stderr, "A\n");
+    fprintf(stderr, " 1");
     filter<ConvType::PLAIN>(buffer, idata, otf, parms);
-    fprintf(stderr, "B\n");
+    fprintf(stderr, " 2");
     // error
     thrust::transform(
         thrust::device,
@@ -123,9 +123,9 @@ void step(
         buffer, // output
         DivfOp
     );
-    fprintf(stderr, "C\n");
-    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parms);
-    fprintf(stderr, "D\n");
+    fprintf(stderr, " 3");
+    filter<ConvType::PLAIN>(buffer, buffer, otf, parms);
+    fprintf(stderr, " 4");
     // latent image
     thrust::transform(
         thrust::device,
@@ -134,9 +134,9 @@ void step(
         odata,  // output
         MulfOp
     );
-    fprintf(stderr, "E\n");
+    fprintf(stderr, " 5\n");
 
-    fprintf(stderr, "[DEBUG] +++ EXIT RL::step() +++\n");
+    fprintf(stderr, "[DBG] +++ EXIT RL::step() +++\n");
 }
 
 }

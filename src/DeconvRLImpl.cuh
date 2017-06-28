@@ -34,6 +34,19 @@ public:
      */
     void alignCenter();
 
+    /**
+     * @brief Convert the PSF to OTF.
+     *
+     * Convert the PSF to an OTF by a FFT. Caller has to allocate the OTF
+     * pointer with a proper memory space, (nx/2+1)*ny*nz*sizeof(cufftComplex).
+     *
+     * @param d_otf The converted OTF.
+     * @param nx Number of elements in the X dimension (fastest variation).
+     * @param ny Number of elements in the Y dimension.
+     * @param nz Number of elements in the Z dimension (slowest variation).
+     *
+     * @see
+     */
     void createOTF(
         cufftComplex *d_otf,
         const size_t nx, const size_t ny, const size_t nz = 1

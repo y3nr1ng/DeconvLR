@@ -15,6 +15,7 @@
 #include "CImg.h"
 using namespace cimg_library;
 // standard libraries headers
+#include <cstdio>
 #include <cstring>
 // system headers
 
@@ -50,6 +51,11 @@ void real(
     const cufftReal *d_idata,
     const size_t nx, const size_t ny, const size_t nz
 ) {
+    fprintf(stderr,
+        "[DBG] dump %ldx%ldx%ld real from device to \"%s\"\n",
+        nx, ny, nz, fname.c_str()
+    );
+
     CImg<float> data(nx, ny, nz);
     const size_t size = nx * ny * nz * sizeof(float);
 
@@ -73,6 +79,11 @@ void complex(
     const cufftComplex *d_idata,
     const size_t nx, const size_t ny, const size_t nz
 ) {
+    fprintf(stderr,
+        "[DBG] dump %ldx%ldx%ld complex from device to \"%s\"\n",
+        nx, ny, nz, fname.c_str()
+    );
+
     CImg<float> data(nx, ny, nz);
     const size_t size = nx * ny * nz * sizeof(float);
 
@@ -108,6 +119,11 @@ void real(
     cufftReal *h_idata,
     const size_t nx, const size_t ny, const size_t nz
 ) {
+    fprintf(stderr,
+        "[DBG] dump %ldx%ldx%ld real from host to \"%s\"\n",
+        nx, ny, nz, fname.c_str()
+    );
+
     CImg<float> data(nx, ny, nz);
     const size_t size = nx * ny * nz * sizeof(float);
 

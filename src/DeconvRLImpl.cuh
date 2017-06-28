@@ -92,14 +92,10 @@ struct Parameters {
     // product of nx, ny and nz
     size_t nelem;
 
-    /**
-     *  The original image.
-     */
+    // original image
     float *raw;
 
-    /**
-     * Converted OTF, not conjugated.
-     */
+    // OTF
     cufftComplex *otf;
 
     /**

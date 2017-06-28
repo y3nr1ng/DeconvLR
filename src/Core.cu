@@ -47,6 +47,49 @@ private:
     const float c;
 };
 
+__global__
+void filter_kernel(
+    cufftComplex *d_odata,
+    const cufftComplex *d_idataA, const cufftComplex *d_idataB,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    //d_odata[idx] = cuCmulf(d_idataA[idx], d_idataB[idx]);
+    cuFloatComplex otf_val = d_idataB[idx];
+    d_odata[idx] = cuCmulf(otf_val, d_idataA[idx]);
+}
+
+__global__
+void filterConj_kernel(
+    cufftComplex *d_odata,
+    const cufftComplex *d_idataA, const cufftComplex *d_idataB,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    int idx = iz * (nx*ny) + iy * nx + ix;
+    //d_odata[idx] = cuCmulf(d_idataA[idx], cuConjf(d_idataB[idx]));
+    cuFloatComplex otf_val = d_idataB[idx];
+    otf_val.y *= -1;
+    d_odata[idx] = cuCmulf(otf_val, d_idataA[idx]);
+}
+
 template <ConvType type>
 void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
@@ -63,14 +106,34 @@ void filter(
     ));
 
     // element-wise multiplication and scale down
+    /*
     thrust::transform(
         thrust::device,
         buffer, buffer+nelem,       // first input sequence
         otf,                        // second input sequence
         buffer,                     // output sequence
-        MultiplyAndScale<type>(1.0f/nelem)
+        MultiplyAndScale<type>(1.0f/parm.nelem)
     );
-
+    */
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(parm.nx/2+1, nthreads.x), DIVUP(parm.ny, nthreads.y), DIVUP(parm.nz, nthreads.z)
+    );
+    if (type == ConvType::CONJUGATE) {
+        fprintf(stderr, "[DBG] conjugate\n");
+        filterConj_kernel<<<nblocks, nthreads>>>(
+            buffer,
+            buffer, otf,
+            parm.nx/2+1, parm.ny, parm.nz
+        );
+    } else {
+        fprintf(stderr, "[DBG] plain\n");
+        filter_kernel<<<nblocks, nthreads>>>(
+            buffer,
+            buffer, otf,
+            parm.nx/2+1, parm.ny, parm.nz
+        );
+    }
     // convert back to real space
     cudaErrChk(cufftExecC2R(
         parm.fftHandle.reverse,
@@ -115,7 +178,7 @@ void step(
         DivfOp
     );
     fprintf(stderr, " 3");
-    filter<ConvType::PLAIN>(buffer, buffer, otf, parms);
+    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parms);
     fprintf(stderr, " 4");
     // latent image
     thrust::transform(

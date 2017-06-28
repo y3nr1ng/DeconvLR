@@ -1,7 +1,7 @@
 // corresponded header file
 // necessary project headers
 #include "ImageStack.hpp"
-#include "DeconvLRDriver.hpp"
+#include "DeconvRLDriver.hpp"
 // 3rd party libraries headers
 // standard libraries headers
 #include <cstdint>
@@ -20,7 +20,7 @@ int main(void)
     // search and load the otf
     ImageStack<uint16_t> psf(psfFile);
     // init the deconvlr
-    DeconvLR deconvWorker;
+    DeconvRL::DeconvRL deconvWorker;
     deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     // iterate through the images
     //      open the image

@@ -1,17 +1,20 @@
-#ifndef HELPER_DUMP_CUH
-#define HELPER_DUMP_CUH
-
 // corresponded header file
+#include "DumpData.cuh"
 // necessary project headers
+#include "Helper.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
-#include <cufft.h>
+#include <cuComplex.h>
+#include <thrust/device_vector.h>
+#include <thrust/transform.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/functional.h>
+#include <thrust/execution_policy.h>
 
 #define cimg_use_tiff
 #include "CImg.h"
 using namespace cimg_library;
 // standard libraries headers
-#include <string>
 #include <cstring>
 // system headers
 
@@ -118,5 +121,3 @@ void real(
 }
 
 }
-
-#endif

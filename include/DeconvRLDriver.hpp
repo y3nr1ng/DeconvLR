@@ -1,5 +1,5 @@
-#ifndef DECONV_LR_DRIVER_HPP
-#define DECONV_LR_DRIVER_HPP
+#ifndef DECONV_RL_DRIVER_HPP
+#define DECONV_RL_DRIVER_HPP
 
 // corresponded header file
 // necessary project headers
@@ -11,10 +11,10 @@
 
 namespace DeconvRL {
 
-class DeconvLR {
+class DeconvRL {
 public:
-    DeconvLR();
-    ~DeconvLR();
+    DeconvRL();
+    ~DeconvRL();
 
     void setResolution(
         const float dx, const float dy, const float dz,

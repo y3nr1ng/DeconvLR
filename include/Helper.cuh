@@ -100,7 +100,4 @@ inline void cudaAssert(
 	}
 }
 
-// post-inclusion
-#include "HelperDump.cuh"
-
 #endif

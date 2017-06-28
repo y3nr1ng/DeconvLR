@@ -1,5 +1,5 @@
 // corresponded header file
-#include "DeconvLRDriver.hpp"
+#include "DeconvRLDriver.hpp"
 // necessary project headers
 #include "DeconvRLImpl.cuh"
 #include "Helper.cuh"
@@ -12,7 +12,7 @@
 
 namespace DeconvRL {
 
-struct DeconvLR::Impl {
+struct DeconvRL::Impl {
     Impl()
         : iterations(10) {
 
@@ -43,15 +43,15 @@ std::unique_ptr<T> make_unique(Args&& ... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
 }
 
-DeconvLR::DeconvLR()
+DeconvRL::DeconvRL()
     : pimpl(make_unique<Impl>()) {
 }
 
-DeconvLR::~DeconvLR() {
+DeconvRL::~DeconvRL() {
 
 }
 
-void DeconvLR::setResolution(
+void DeconvRL::setResolution(
     const float dx, const float dy, const float dz,
     const float dpx, const float dpy, const float dpz
 ) {
@@ -72,7 +72,7 @@ void DeconvLR::setResolution(
     pimpl->voxelSize.psf = make_float3(dpx, dpy, dpz);
 }
 
-void DeconvLR::setVolumeSize(
+void DeconvRL::setVolumeSize(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     //TODO probe for device specification
@@ -90,12 +90,7 @@ void DeconvLR::setVolumeSize(
     );
 }
 
-/*
- * ===========
- * PSF AND OTF
- * ===========
- */
-void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
+void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Ensure we are working with floating points.
      */
@@ -125,7 +120,7 @@ void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
     fprintf(stderr, "[INFO] OTF established\n");
 }
 
-void DeconvLR::initialize() {
+void DeconvRL::initialize() {
     const dim3 volumeSize = pimpl->volumeSize;
     Core::RL::Parameters &iterParms = pimpl->iterParms;
 
@@ -181,7 +176,7 @@ void DeconvLR::initialize() {
 }
 
 //TODO scale output from float to uint16
-void DeconvLR::process(
+void DeconvRL::process(
 	ImageStack<float> &odata,
 	const ImageStack<uint16_t> &idata
 ) {

@@ -2,6 +2,7 @@
 // necessary project headers
 #include "DeconvRLImpl.cuh"
 #include "Helper.cuh"
+#include "DumpData.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
 #include <cuComplex.h>

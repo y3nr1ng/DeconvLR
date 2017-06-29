@@ -188,11 +188,10 @@ void DeconvRL::process(
     Core::Parameters &iterParms = pimpl->iterParms;
     const size_t nelem = iterParms.nelem;
 
-    cudaErrChk(cudaSetDeviceFlags(cudaDeviceMapHost));
     // register the input data memory region on host as pinned
     cudaErrChk(cudaHostRegister(
         idata.data(),
-        nelem * sizeof(float),
+        nelem * sizeof(uint16_t),
         cudaHostRegisterMapped
     ));
 

@@ -150,13 +150,9 @@ void step(
     // calcualte x_k
     RL::step(iter, idata, parm);
 
-    fprintf(stderr, "153\n");
-
     // extract the definition
     float *prevIter = parm.predBuffer.prevIter;
     float *prevPredChg = parm.predBuffer.prevPredChg;
-
-    fprintf(stderr, "159\n");
 
     // updateDir borrow buffer from prevIter
     float* updateDir = prevIter;
@@ -170,8 +166,6 @@ void step(
         thrust::minus<float>()
     );
 
-    fprintf(stderr, "173\n");
-
     // reuse space of idata
     float *predChg = const_cast<float *>(idata);
     // calculate g_{k - 1} = x_k - y_{k - 1}.
@@ -183,8 +177,6 @@ void step(
         predChg,
         thrust::minus<float>()
     );
-
-    fprintf(stderr, "187\n");
 
     // calculate alpha (acceleration factor).
     float alpha =
@@ -201,7 +193,9 @@ void step(
                 0
             ) + std::numeric_limits<float>::epsilon()
         );
-    fprintf(stderr, "[INF] alpha = %.2f\n", alpha);
+    // stability enforcement
+    alpha = std::max(std::min(alpha, 1.0f), 0.0f);
+    fprintf(stderr, "[INF] alpha = %.5f\n", alpha);
 
     // save current predictions
     cudaErrChk(cudaMemcpy(

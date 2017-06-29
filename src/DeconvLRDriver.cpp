@@ -227,8 +227,8 @@ void DeconvRL::process(
      */
     const int nIter = pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
-        //Core::RL::step(
-        Core::Biggs::step(
+        Core::RL::step(
+        //Core::Biggs::step(
             iterParms.ioBuffer.output,  // output
             iterParms.ioBuffer.input,   // input
             iterParms

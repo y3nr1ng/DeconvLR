@@ -12,9 +12,8 @@ int main(void)
 {
     TIFFSetWarningHandler(NULL);
 
-    std::string origImgFile = "data/bigradient/sample.tif";
-    //std::string psfFile = "data/centroid/centroid_matlab_x20_y40_z80.tif";
-    std::string psfFile = "data/bigradient/psf.tif";
+    std::string origImgFile = "data/bead/sample.tif";
+    std::string psfFile = "data/bead/psf.tif";
 
     // scan the folder
     // search and load the otf

@@ -178,8 +178,8 @@ void step(
     // pred_change = iter - prev_pred;
     thrust::transform(
         thrust::device,
-        pred, pred+parm.nelem,
-        iter,
+        iter, iter+parm.nelem,
+        prevPred,
         pred,
         thrust::minus<float>()
     );

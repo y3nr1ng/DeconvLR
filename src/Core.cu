@@ -96,9 +96,7 @@ void step(
      */
 
     // reblur the image
-    fprintf(stderr, " 1");
     filter(buffer, idata, otf, parms);
-    fprintf(stderr, " 2");
     // error
     thrust::transform(
         thrust::device,
@@ -107,9 +105,7 @@ void step(
         buffer, // output
         DivfOp
     );
-    fprintf(stderr, " 3");
     filter(buffer, buffer, otf, parms);
-    fprintf(stderr, " 4");
     // latent image
     thrust::transform(
         thrust::device,
@@ -118,7 +114,6 @@ void step(
         odata,  // output
         MulfOp
     );
-    fprintf(stderr, " 5\n");
 
     fprintf(stderr, "[DBG] +++ EXIT RL::step() +++\n");
 }
@@ -155,9 +150,13 @@ void step(
     // calcualte x_k
     RL::step(iter, idata, parm);
 
+    fprintf(stderr, "153\n");
+
     // extract the definition
     float *prevIter = parm.predBuffer.prevIter;
     float *prevPred = parm.predBuffer.prevPred;
+
+    fprintf(stderr, "159\n");
 
     // updateDir borrow buffer from prevIter
     float* updateDir = prevIter;
@@ -171,6 +170,8 @@ void step(
         thrust::minus<float>()
     );
 
+    fprintf(stderr, "173\n");
+
     // reuse space of idata
     float *pred = const_cast<float *>(idata);
     // calculate g_{k - 1} = x_k - y_{k - 1}.
@@ -183,17 +184,22 @@ void step(
         thrust::minus<float>()
     );
 
+    fprintf(stderr, "187\n");
+
     // calculate alpha (acceleration factor).
-    float alpha = thrust::inner_product(
-        thrust::device,
-        pred, pred+parm.nelem,
-        prevPred, 0
-    ) / thrust::inner_product(
-        thrust::device,
-        prevPred, prevPred+parm.nelem,
-        prevPred,
-        0
-    ) + std::numeric_limits<float>::epsilon();
+    float alpha =
+        thrust::inner_product(
+            thrust::device,
+            pred, pred+parm.nelem,
+            prevPred,
+            0
+        ) / thrust::inner_product(
+            thrust::device,
+            prevPred, prevPred+parm.nelem,
+            prevPred,
+            0
+        ) + std::numeric_limits<float>::epsilon();
+    fprintf(stderr, "[INF] alpha = %.2f\n", alpha);
 
     // save current predictions
     cudaErrChk(cudaMemcpy(

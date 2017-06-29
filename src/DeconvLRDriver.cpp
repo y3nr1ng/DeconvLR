@@ -177,7 +177,7 @@ void DeconvRL::initialize() {
 
      // prediction buffer
      cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevIter, realSize));
-     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevPred, realSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevPredChg, realSize));
 }
 
 //TODO scale output from float to uint16

@@ -130,7 +130,7 @@ struct Parameters {
      */
     struct {
         float *prevIter;
-        float *prevPred;
+        float *prevPredChg;
     } predBuffer;
 };
 

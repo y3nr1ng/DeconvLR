@@ -154,7 +154,7 @@ void step(
 
     // extract the definition
     float *prevIter = parm.predBuffer.prevIter;
-    float *prevPred = parm.predBuffer.prevPred;
+    float *prevPredChg = parm.predBuffer.prevPredChg;
 
     fprintf(stderr, "159\n");
 
@@ -179,8 +179,8 @@ void step(
     thrust::transform(
         thrust::device,
         iter, iter+parm.nelem,
-        prevPred,
-        pred,
+        idata,
+        prevPredChg,
         thrust::minus<float>()
     );
 
@@ -191,13 +191,13 @@ void step(
         thrust::inner_product(
             thrust::device,
             pred, pred+parm.nelem,
-            prevPred,
+            prevPredChg,
             0
         ) / (
             thrust::inner_product(
                 thrust::device,
-                prevPred, prevPred+parm.nelem,
-                prevPred,
+                prevPredChg, prevPredChg+parm.nelem,
+                prevPredChg,
                 0
             ) + std::numeric_limits<float>::epsilon()
         );
@@ -211,7 +211,7 @@ void step(
         cudaMemcpyDeviceToDevice
     ));
     cudaErrChk(cudaMemcpy(
-        prevPred,
+        prevPredChg,
         pred,
         parm.nelem * sizeof(float),
         cudaMemcpyDeviceToDevice

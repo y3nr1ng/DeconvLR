@@ -124,19 +124,29 @@ namespace Biggs {
 
 namespace {
 
+struct ClampedSub
+    : public thrust::binary_function<float, float, float> {
+    __host__ __device__
+    float operator()(const float &a, const float &b) const {
+        // apply positivity constraint after SAXPY
+        return fmaxf(a-b, 0.0f);
+    }
+};
+
 struct ScaleAndAdd
     : public thrust::binary_function<float, float, float> {
-    ScaleAndAdd(const float c_)
-        : c(c_) {
+    ScaleAndAdd(const float alpha_)
+        : alpha(alpha_) {
     }
 
     __host__ __device__
     float operator()(const float &a, const float &b) const {
-        return a + b*c;
+        // apply positivity constraint after SAXPY
+        return fmaxf(a + alpha*b, 0.0f);
     }
 
 private:
-    const float c;
+    const float alpha;
 };
 
 }
@@ -160,8 +170,8 @@ void step(
     // update_direction = prev_iter - iter;
     thrust::transform(
         thrust::device,
-        prevIter, prevIter+parm.nelem,
-        iter,
+        iter, iter+parm.nelem,
+        prevIter,
         updateDir,
         thrust::minus<float>()
     );
@@ -195,7 +205,7 @@ void step(
         );
     // stability enforcement
     alpha = std::max(std::min(alpha, 1.0f), 0.0f);
-    fprintf(stderr, "[INF] alpha = %.5f\n", alpha);
+    fprintf(stderr, "[INF] alpha = %f\n", alpha);
 
     // save current predictions
     cudaErrChk(cudaMemcpy(

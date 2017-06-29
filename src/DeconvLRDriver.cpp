@@ -35,7 +35,7 @@ struct DeconvRL::Impl {
      * Algorithm configurations.
      */
     int iterations;
-    Core::RL::Parameters iterParms;
+    Core::Parameters iterParms;
 };
 
 // C++14 feature
@@ -123,7 +123,7 @@ void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
 
 void DeconvRL::initialize() {
     const dim3 volumeSize = pimpl->volumeSize;
-    Core::RL::Parameters &iterParms = pimpl->iterParms;
+    Core::Parameters &iterParms = pimpl->iterParms;
 
     /*
      * Load dimension information into the iteration parameter.
@@ -185,7 +185,7 @@ void DeconvRL::process(
 	ImageStack<float> &odata,
 	const ImageStack<uint16_t> &idata
 ) {
-    Core::RL::Parameters &iterParms = pimpl->iterParms;
+    Core::Parameters &iterParms = pimpl->iterParms;
     const size_t nelem = iterParms.nelem;
 
     // register the input data memory region on host as pinned

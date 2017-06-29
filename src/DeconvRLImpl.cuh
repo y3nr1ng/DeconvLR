@@ -75,8 +75,6 @@ namespace Core {
  * @see FUNCTION
  */
 
-namespace RL {
-
 /**
  * Parameter class that holds all constant and temporary variables during the
  * Richardson-Lucy iteration steps.
@@ -134,6 +132,8 @@ struct Parameters {
     } predBuffer;
 };
 
+namespace RL {
+
 /**
  * @brief One iteration in the Richardson-Lucy algorithm.
  *
@@ -146,7 +146,7 @@ struct Parameters {
  */
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parms
+    Core::Parameters &parms
 );
 
 }
@@ -165,7 +165,7 @@ namespace Biggs {
  */
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parms
+    Core::Parameters &parms
 );
 
 }

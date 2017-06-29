@@ -45,7 +45,7 @@ private:
 
 void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
-    Core::RL::Parameters &parm
+    Core::Parameters &parm
 ) {
     const size_t nelem = (parm.nx/2+1) * parm.ny * parm.nz;
     cufftComplex *buffer = (cufftComplex *)parm.filterBuffer.complexA;
@@ -79,7 +79,7 @@ thrust::multiplies<float> MulfOp;
 
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parms
+    Core::Parameters &parms
 ) {
     fprintf(stderr, "[DBG] +++ ENTER RL::step() +++\n");
 
@@ -143,7 +143,7 @@ private:
 
 void step(
     float *odata, const float *idata,
-    Core::RL::Parameters &parm
+    Core::Parameters &parm
 ) {
     // borrow space from odata, rename to avoid confusion
     float* iter = odata;

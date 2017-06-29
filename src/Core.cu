@@ -193,12 +193,14 @@ void step(
             pred, pred+parm.nelem,
             prevPred,
             0
-        ) / thrust::inner_product(
-            thrust::device,
-            prevPred, prevPred+parm.nelem,
-            prevPred,
-            0
-        ) + std::numeric_limits<float>::epsilon();
+        ) / (
+            thrust::inner_product(
+                thrust::device,
+                prevPred, prevPred+parm.nelem,
+                prevPred,
+                0
+            ) + std::numeric_limits<float>::epsilon()
+        );
     fprintf(stderr, "[INF] alpha = %.2f\n", alpha);
 
     // save current predictions

@@ -115,9 +115,38 @@ make</pre>
 
             The original Richard-Lucy's algorithm often converges to a maximum likelihood image but the image may be noisy. Thus, the total variation loss can be added to act as regularization. After some more math conductions, it turns out that only a little bit of modification of original iteration is required:
 
-            \[u_{(t + 1)} = \phi(u_t) = \frac{u_{t}}{1 - \lambda \mathrm{div}(\frac{\nabla d_k}{|\nabla d_k|}) } \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
+            \[u_{(t + 1)} = \phi(u_t) = \frac{u_{t}}{1 - \lambda \mathrm{div}(\frac{\nabla u_t}{|\nabla u_t|}) } \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
                         
             <h2>Benchmark</h2>
+
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/sample.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">Original Image</figcaption>
+                </figure>
+            </div>
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_10.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 10 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_100.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 100 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_1000.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 1000 updates</figcaption>
+                </figure>
+            </div>
+            
+            <img class="img-responsive"
+                 src="./benchmark/basic_rl_lineprofile.png">
+            
             <h2>References</h2>
             <ul>
                 <li>William Hadley Richardson  (1972), "Bayesian-Based Iterative Method of Image Restoration*," J. Opt. Soc. Am. 62, 55-59.</li>

@@ -30,8 +30,10 @@
             <h3>Requirements</h3>
             <ul>
                 <li>make</li>
-                <li>CMake</li>
-                <li>CUDA</li>
+                <li>g++ <= 5</li>
+                <li>CMake >= 3.6</li>
+                <li>Boost >= 1.59</li>
+                <li>CUDA >= 8.0</li>                
             </ul>
             <h3>Build</h3>            
             <ul>
@@ -45,12 +47,35 @@
 cd DeconvRL
 mkdir build</pre>
                 </li>
-                <li>Then <code>cd</code> into directory <code>build</code> and use command <code>make</code> to build the project.
+                <li>Then <code>cd</code> into directory <code>build</code> and use command <code>cmake</code> and <code>make</code> to build the project.
                     <pre>cd build
+cmake .
 make</pre>
                 </li>
             </ul>
             <h3>Usage</h3>
+            This library can be used as followed:
+            <pre><code class="cpp">    std::string origImgFile = "data/bigradient/sample.tif";
+    std::string psfFile = "data/bigradient/psf_n15_z5.tif";
+
+    // load psf
+    ImageStack<uint16_t> psf(psfFile);
+
+    // init the deconvlr
+    DeconvLR deconvWorker;
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // open the image
+    const ImageStack&ltuint16_t&gt input(origImgFile);
+    ImageStack&ltuint16_t&gt output(input, 0);
+
+    // use the first image to init the resources
+    deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
+    deconvWorker.setPSF(psf);
+
+    // run the deconv
+    deconvWorker.process(output, input);
+                </code></pre>
             
             <h2>Algorithm</h2>
             <h3>Richard-Lucy Deconvolution</h3>
@@ -59,9 +84,9 @@ make</pre>
             \[d_i = \sum_j p_{ij} u_j\]
 
             where \(p_{ij}\) is the probability of the event that light from point source at position \(j\) recoreded in pixel \(i\) of photo, and \(u_j\) is the amount of light from point source at position \(j\). So after some conduction, and generalized in multi-dimension, given a photo \(d\), we can reconstruct the distribution of real point source of maximum likelihood by expectaction maximization algorithm:
-            \[u^{(t + 1)} = u_{t} \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
+            \[u_{t + 1} = u_{t} \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
 
-            ,where \(\hat{p}_{ij} = p_{(n-i)(m-j)}\) for \(d\) of shape \(n \times m\), and \(*\) is convolution operator.
+            ,where \(\hat{p}_{ij} = p_{(n-i)(m-j)}\) for \(d\) of shape \(n \times m\), and \(*\) is convolution operator, which is implemented with elementwise multiplication in frequence domain.
             
             <h3>Biggs Andrew Acceleration</h3>
             It is an acceleration of Richard-Lucy's algorithm proposed by Biggs and Andrew. Let the original Richard-Lucy's iteration be \(\phi\), namely
@@ -104,6 +129,10 @@ make</pre>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.0/gh-fork-ribbon.min.css" />
         <a class="github-fork-ribbon"
            href="https://github.com/liuyenting/DeconvLR"
-           title="Fork me on GitHub">Fork me on GitHub</a> 
+           title="Fork me on GitHub">Fork me on GitHub</a>
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
     </body>
 </html>

@@ -173,14 +173,14 @@ void step(
     fprintf(stderr, "173\n");
 
     // reuse space of idata
-    float *pred = const_cast<float *>(idata);
+    float *predChg = const_cast<float *>(idata);
     // calculate g_{k - 1} = x_k - y_{k - 1}.
     // pred_change = iter - prev_pred;
     thrust::transform(
         thrust::device,
         iter, iter+parm.nelem,
         idata,
-        prevPredChg,
+        predChg,
         thrust::minus<float>()
     );
 
@@ -190,7 +190,7 @@ void step(
     float alpha =
         thrust::inner_product(
             thrust::device,
-            pred, pred+parm.nelem,
+            predChg, predChg+parm.nelem,
             prevPredChg,
             0
         ) / (
@@ -212,7 +212,7 @@ void step(
     ));
     cudaErrChk(cudaMemcpy(
         prevPredChg,
-        pred,
+        predChg,
         parm.nelem * sizeof(float),
         cudaMemcpyDeviceToDevice
     ));

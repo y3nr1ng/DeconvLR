@@ -181,20 +181,23 @@ void step(
     );
 
     // calculate alpha (acceleration factor).
-    float alpha =
+    float den = thrust::inner_product(
+        thrust::device,
+        predChg, predChg+parm.nelem,
+        prevPredChg,
+        0
+    );
+    float nom = (
         thrust::inner_product(
             thrust::device,
-            predChg, predChg+parm.nelem,
+            prevPredChg, prevPredChg+parm.nelem,
             prevPredChg,
             0
-        ) / (
-            thrust::inner_product(
-                thrust::device,
-                prevPredChg, prevPredChg+parm.nelem,
-                prevPredChg,
-                0
-            ) + std::numeric_limits<float>::epsilon()
-        );
+        ) + std::numeric_limits<float>::epsilon()
+    );
+    float alpha = den / nom;
+    fprintf(stderr, "[DBG] fraction [%f/%f = %f]\n", den, nom, alpha);
+
     // stability enforcement
     alpha = std::max(std::min(alpha, 1.0f), 0.0f);
     fprintf(stderr, "[INF] alpha = %f\n", alpha);

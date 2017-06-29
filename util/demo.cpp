@@ -12,8 +12,8 @@ int main(void)
 {
     TIFFSetWarningHandler(NULL);
 
-    std::string origImgFile = "data/cell/sample.tif";
-    std::string psfFile = "data/cell/psf.tif";
+    std::string origImgFile = "data/bigradient/sample.tif";
+    std::string psfFile = "data/bigradient/psf.tif";
 
     // scan the folder
     // search and load the otf
@@ -29,6 +29,7 @@ int main(void)
     deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
     deconvWorker.setPSF(psf);
     deconvWorker.initialize();
+    deconvWorker.setIterations(10);
     //      run the deconv
     deconvWorker.process(output, input);
     //      save the image

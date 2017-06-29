@@ -124,15 +124,6 @@ namespace Biggs {
 
 namespace {
 
-struct ClampedSub
-    : public thrust::binary_function<float, float, float> {
-    __host__ __device__
-    float operator()(const float &a, const float &b) const {
-        // apply positivity constraint after SAXPY
-        return fmaxf(a-b, 0.0f);
-    }
-};
-
 struct ScaleAndAdd
     : public thrust::binary_function<float, float, float> {
     ScaleAndAdd(const float alpha_)
@@ -142,7 +133,8 @@ struct ScaleAndAdd
     __host__ __device__
     float operator()(const float &a, const float &b) const {
         // apply positivity constraint after SAXPY
-        return fmaxf(a + alpha*b, 0.0f);
+        //return fmaxf(a + alpha*b, 0.0f);
+        return a + alpha*b;
     }
 
 private:

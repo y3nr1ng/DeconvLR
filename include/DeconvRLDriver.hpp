@@ -25,6 +25,8 @@ public:
 
     // allocate host and device resources
     void initialize();
+    // set iterations
+    void setIterations(const int iterations);
     // start the RL core routines
     void process(
         ImageStack<float> &output,

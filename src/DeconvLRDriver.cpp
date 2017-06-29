@@ -14,9 +14,7 @@
 namespace DeconvRL {
 
 struct DeconvRL::Impl {
-    Impl()
-        : iterations(10) {
-
+    Impl() {
     }
 
     ~Impl() {
@@ -180,6 +178,13 @@ void DeconvRL::initialize() {
      cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevPredChg, realSize));
 }
 
+void DeconvRL::setIterations(const int i) {
+    if (i < 1) {
+        throw std::range_error("iteration cycle has to be at least 1");
+    }
+    pimpl->iterations = i;
+}
+
 //TODO scale output from float to uint16
 void DeconvRL::process(
 	ImageStack<float> &odata,
@@ -221,6 +226,19 @@ void DeconvRL::process(
      * Release the pinned memory region.
      */
     cudaErrChk(cudaHostUnregister(idata.data()));
+
+    // preset the iteration
+    cudaErrChk(cudaMemcpy(
+        iterParms.predBuffer.prevIter,
+        iterParms.ioBuffer.input,
+        nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
+    cudaErrChk(cudaMemset(
+        iterParms.predBuffer.prevPredChg,
+        0,
+        nelem * sizeof(float)
+    ));
 
     /*
      * Execute the core functions.

@@ -174,6 +174,10 @@ void DeconvRL::initialize() {
 
      // RL Buffer
      cudaErrChk(cudaMalloc((void **)&iterParms.RLBuffer.realA, realSize));
+
+     // prediction buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevIter, realSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevPred, realSize));
 }
 
 //TODO scale output from float to uint16
@@ -223,7 +227,8 @@ void DeconvRL::process(
      */
     const int nIter = pimpl->iterations;
     for (int iIter = 1; iIter <= nIter; iIter++) {
-        Core::RL::step(
+        //Core::RL::step(
+        Core::Biggs::step(
             iterParms.ioBuffer.output,  // output
             iterParms.ioBuffer.input,   // input
             iterParms

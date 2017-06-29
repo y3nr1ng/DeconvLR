@@ -195,6 +195,7 @@ void step(
         0
     ) + std::numeric_limits<float>::epsilon();
 
+    // save current predictions
     cudaErrChk(cudaMemcpy(
         prevIter,
         iter,

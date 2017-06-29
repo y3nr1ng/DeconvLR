@@ -27,7 +27,6 @@ enum class ConvType {
 
 namespace {
 // generic complex number operation
-template <ConvType type>
 struct MultiplyAndScale
     : public thrust::binary_function<cuComplex, cuComplex, cuComplex> {
     MultiplyAndScale(const float c_)
@@ -36,18 +35,13 @@ struct MultiplyAndScale
 
     __host__ __device__
     cuComplex operator()(const cuComplex &a, const cuComplex &b) const {
-        if (type == ConvType::CONJUGATE) {
-            return cuCmulf(a, cuConjf(b))/c;
-        } else {
-            return cuCmulf(a, b)/c;
-        }
+        return cuCmulf(a, b)/c;
     }
 
 private:
     const float c;
 };
 
-template <ConvType type>
 void filter(
     cufftReal *odata, const cufftReal *idata, const cufftComplex *otf,
     Core::RL::Parameters &parm
@@ -61,14 +55,13 @@ void filter(
         const_cast<cufftReal *>(idata),
         buffer
     ));
-
     // element-wise multiplication and scale down
     thrust::transform(
         thrust::device,
         buffer, buffer+nelem,       // first input sequence
         otf,                        // second input sequence
         buffer,                     // output sequence
-        MultiplyAndScale<type>(1.0f/parm.nelem)
+        MultiplyAndScale(1.0f/parm.nelem)
     );
     // convert back to real space
     cudaErrChk(cufftExecC2R(
@@ -103,7 +96,7 @@ void step(
 
     // reblur the image
     fprintf(stderr, " 1");
-    filter<ConvType::PLAIN>(buffer, idata, otf, parms);
+    filter(buffer, idata, otf, parms);
     fprintf(stderr, " 2");
     // error
     thrust::transform(
@@ -114,7 +107,7 @@ void step(
         DivfOp
     );
     fprintf(stderr, " 3");
-    filter<ConvType::CONJUGATE>(buffer, buffer, otf, parms);
+    filter(buffer, buffer, otf, parms);
     fprintf(stderr, " 4");
     // latent image
     thrust::transform(

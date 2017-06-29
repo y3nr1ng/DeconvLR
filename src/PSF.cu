@@ -137,6 +137,35 @@ void alignCenter_kernel(
     odata[idx] = tex3D(psfTexRef, fx, fy, fz);
 }
 
+__global__
+void fftshift3_kernel(
+    float *odata,
+    const float *idata,
+    const size_t nx, const size_t ny, const size_t nz
+) {
+    int ix = blockIdx.x*blockDim.x + threadIdx.x;
+    int iy = blockIdx.y*blockDim.y + threadIdx.y;
+    int iz = blockIdx.z*blockDim.z + threadIdx.z;
+
+    // skip out-of-bound threads
+    if (ix >= nx or iy >= ny or iz >= nz) {
+        return;
+    }
+
+    // input linear index
+    const int iidx = iz * (nx*ny) + iy * nx + ix;
+
+    // calculate wrap-around (x, y, z)
+    // ... advance half cycle
+    ix += nx/2, iy += ny/2, iz += nz/2;
+    // ... wrap-around
+    ix %= nx, iy %= ny, iz %= nz;
+    // output linear index
+    const int oidx = iz * (nx*ny) + iy * nx + ix;
+
+    odata[oidx] = idata[iidx];
+}
+
 }
 
 PSF::PSF(
@@ -250,11 +279,22 @@ void PSF::createOTF(cufftComplex *d_otf) {
     /*
      * Execute the conversion.
      */
-    cudaErrChk(cufftExecR2C(otfHdl, d_psf, d_otf));
+    // temporary memory space to hold the shifted PSF
+    float *d_tmp;
+    cudaErrChk(cudaMalloc(&d_tmp, nelem * sizeof(float)));
+    cudaErrChk(cudaMemcpy(d_tmp, d_psf, nelem * sizeof(float), cudaMemcpyDeviceToDevice));
 
-    // shift the kernel
+    // fftshift
+    dim3 nthreads(16, 16, 4);
+    dim3 nblocks(
+        DIVUP(npx, nthreads.x), DIVUP(npy, nthreads.y), DIVUP(npz, nthreads.z)
+    );
+    fftshift3_kernel<<<nblocks, nthreads>>>(d_tmp, d_psf, npx, npy, npz);
+
+    cudaErrChk(cufftExecR2C(otfHdl, d_tmp, d_otf));
 
     // release FFT resource
+    cudaErrChk(cudaFree(d_tmp));
     cudaErrChk(cufftDestroy(otfHdl));
 
     DumpData::Device::complex("otf_dump.tif", d_otf, npx/2+1, npy, npz);

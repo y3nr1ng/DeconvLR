@@ -10,6 +10,7 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/execution_policy.h>
+#include <thrust/inner_product.h>
 #include <cufft.h>
 // standard libraries headers
 #include <cstdint>
@@ -128,20 +129,94 @@ namespace Biggs {
 
 namespace {
 
+struct ScaleAndAdd
+    : public thrust::binary_function<float, float, float> {
+    ScaleAndAdd(const float c_)
+        : c(c_) {
+    }
+
+    __host__ __device__
+    float operator()(const float &a, const float &b) const {
+        return a + b*c;
+    }
+
+private:
+    const float c;
+};
+
 }
 
 void step(
     float *odata, const float *idata,
     Core::RL::Parameters &parm
 ) {
-    // execute an iteration of RL
-    //RL::step();
+    // borrow space from odata, rename to avoid confusion
+    float* iter = odata;
+    // calcualte x_k
+    RL::step(iter, idata, parm);
 
-    // find the update direction
+    // extract the definition
+    float *prevIter = parm.predBuffer.prevIter;
+    float *prevPred = parm.predBuffer.prevPred;
 
-    // calculate acceleration factor
+    // updateDir borrow buffer from prevIter
+    float* updateDir = prevIter;
+    // h_k in the paper
+    // update_direction = prev_iter - iter;
+    thrust::transform(
+        thrust::device,
+        prevIter, prevIter+parm.nelem,
+        iter,
+        updateDir,
+        thrust::minus<float>()
+    );
 
-    // re-estimate prediction
+    // reuse space of idata
+    float *pred = const_cast<float *>(idata);
+    // calculate g_{k - 1} = x_k - y_{k - 1}.
+    // pred_change = iter - prev_pred;
+    thrust::transform(
+        thrust::device,
+        pred, pred+parm.nelem,
+        iter,
+        pred,
+        thrust::minus<float>()
+    );
+
+    // calculate alpha (acceleration factor).
+    float alpha = thrust::inner_product(
+        thrust::device,
+        pred, pred+parm.nelem,
+        prevPred, 0
+    ) / thrust::inner_product(
+        thrust::device,
+        prevPred, prevPred+parm.nelem,
+        prevPred,
+        0
+    ) + std::numeric_limits<float>::epsilon();
+
+    cudaErrChk(cudaMemcpy(
+        prevIter,
+        iter,
+        parm.nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
+    cudaErrChk(cudaMemcpy(
+        prevPred,
+        pred,
+        parm.nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
+
+    // calculate y_k
+    // odata = iter + alpha * update_direction;
+    thrust::transform(
+        thrust::device,
+        iter, iter+parm.nelem,
+        updateDir,
+        odata,
+        ScaleAndAdd(alpha)
+    );
 }
 
 }

@@ -15,7 +15,7 @@ namespace DeconvRL {
 
 struct DeconvRL::Impl {
     Impl()
-        : iterations(100) {
+        : iterations(10) {
 
     }
 

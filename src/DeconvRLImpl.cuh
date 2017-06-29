@@ -124,6 +124,14 @@ struct Parameters {
     struct {
         cufftReal *realA;
     } RLBuffer;
+
+    /**
+     * Prediction buffers
+     */
+    struct {
+        float *prevIter;
+        float *prevPred;
+    } predBuffer;
 };
 
 /**

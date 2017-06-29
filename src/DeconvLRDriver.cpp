@@ -15,7 +15,7 @@ namespace DeconvRL {
 
 struct DeconvRL::Impl {
     Impl()
-        : iterations(1) {
+        : iterations(10) {
 
     }
 
@@ -188,6 +188,7 @@ void DeconvRL::process(
     Core::Parameters &iterParms = pimpl->iterParms;
     const size_t nelem = iterParms.nelem;
 
+    cudaErrChk(cudaSetDeviceFlags(cudaDeviceMapHost));
     // register the input data memory region on host as pinned
     cudaErrChk(cudaHostRegister(
         idata.data(),
@@ -241,6 +242,10 @@ void DeconvRL::process(
 
     // swap back to avoid confusion
     std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
+
+    // noarmalize the result to [0, 65535]
+
+
     // copy back to host
     cudaErrChk(cudaMemcpy(
         odata.data(),

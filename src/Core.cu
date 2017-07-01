@@ -185,14 +185,14 @@ void step(
         thrust::device,
         predChg, predChg+parm.nelem,
         prevPredChg,
-        0
+        0.0f
     );
     float nom = (
         thrust::inner_product(
             thrust::device,
             prevPredChg, prevPredChg+parm.nelem,
             prevPredChg,
-            0
+            0.0f
         ) + std::numeric_limits<float>::epsilon()
     );
     float alpha = den / nom;

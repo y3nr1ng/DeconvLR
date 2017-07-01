@@ -16,6 +16,8 @@ Boost >= 1.59
 CUDA >= 8.0
 ```
 
+**Windows**
+
 ### Installing
 A step by step series of examples that tell you have to get a development env running
 

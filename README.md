@@ -1,4 +1,4 @@
-# DeconvLR
+# DeconvRL
 DeconvRL is a open source CUDA implementation of accelerated Richard-Lucy Deconvolution algorithm regularized with total variation loss. This library is developed to recovered blurred image due to the spreading of point source in optical system. As far as we know, there is no other fully functional open source GPU accelerated implementation. This project is aim to develope an open source, high efficient library to process high resolution images of high quality.
 
 ## Getting Started

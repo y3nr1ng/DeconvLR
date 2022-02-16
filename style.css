@@ -1,0 +1,27 @@
+
+@media (min-width: 1200px) {
+    .container {
+        max-width: 60%;
+    }
+}
+
+header {
+    padding: 80px;
+    /* padding-top: 20px; */
+    /* box-shadow: 5px 5px 5px 5px gray; */
+    text-align: center;
+}
+
+.container {
+    padding: 20px;
+}
+    
+
+.button-wrapper {
+    padding-top: 50px;
+}
+
+
+.button-wrapper a {
+    font-size: 18px;
+}

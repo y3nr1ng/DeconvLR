@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <link rel="stylesheet" href="./style.css">
+        <script type="text/javascript" async
+                src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML">
+        </script>
+    </head>
+    <body>
+        <!-- <nav class="navbar"></nav> -->
+        <header>
+            <h1>DeconvRL</h1>
+            <h4>A GPU Accelerated Richard-Lucy Deconvolution Library</h4>
+            <div class="button-wrapper">
+                <a class="btn btn-default" href="https://github.com/liuyenting/DeconvLR/archive/devel.zip" role="button">
+                    <span class="glyphicon glyphicon-download-alt" aria-hidden="true">
+                    </span>
+                    Download <br>
+                    <span class="small">DeconvRL-v0.0.0.tar.gz</span>
+                </a>
+            </div>
+            <title>DeconvRL</title>
+        </header>
+        <main class="container">
+            <h2>What is DeconvRL</h2>
+            DeconvRL is a open source CUDA implementation of accelerated Richard-Lucy Deconvolution algorithm regularized with total variation loss. This library is developed to recovered blurred image due to the spreading of point source in optical system. As far as we know, there is no other fully functional open source GPU accelerated implementation. This project is aim to develope an open source, high efficient library to process high resolution images of high quality.
+            <h2>Quick Start</h2>
+            <h3>Requirements</h3>
+            <ul>
+                <li>make</li>
+                <li>g++ <= 5</li>
+                <li>CMake >= 3.6</li>
+                <li>Boost >= 1.59</li>
+                <li>CUDA >= 8.0</li>                
+            </ul>
+            <h3>Build</h3>            
+            <ul>
+                <li>
+                    First download the source code and untar it.
+                    <pre>tar zxvf DeconvRL.tar.gz</pre>
+                </li>
+                <li>
+                    Then <code>cd</code> into the source code directory and make a directory called <code>build</code>.
+                    <pre>
+cd DeconvRL
+mkdir build</pre>
+                </li>
+                <li>Then <code>cd</code> into directory <code>build</code> and use command <code>cmake</code> and <code>make</code> to build the project.
+                    <pre>cd build
+cmake .
+make</pre>
+                </li>
+            </ul>
+            <h3>Usage</h3>
+            This library can be used as followed:
+            <pre><code class="cpp">    std::string origImgFile = "data/bigradient/sample.tif";
+    std::string psfFile = "data/bigradient/psf_n15_z5.tif";
+
+    // load psf
+    ImageStack<uint16_t> psf(psfFile);
+
+    // init the deconvlr
+    DeconvLR deconvWorker;
+    deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+
+    // open the image
+    const ImageStack&ltuint16_t&gt input(origImgFile);
+    ImageStack&ltuint16_t&gt output(input, 0);
+
+    // use the first image to init the resources
+    deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
+    deconvWorker.setPSF(psf);
+
+    // run the deconv
+    deconvWorker.process(output, input);
+                </code></pre>
+            
+            <h2>Algorithm</h2>
+            <h3>Richard-Lucy Deconvolution</h3>
+            A image can be seen as a combination of point sources. However, point sources are usually not ideal, so it will spread out as we recored them with photo. In Richard-Lucy deconvolution algorithm, the pixel \(d_i\) of a photo is modeled as expectaction sum of light from each real point sources. That is
+
+            \[d_i = \sum_j p_{ij} u_j\]
+
+            where \(p_{ij}\) is the probability of the event that light from point source at position \(j\) recoreded in pixel \(i\) of photo, and \(u_j\) is the amount of light from point source at position \(j\). So after some conduction, and generalized in multi-dimension, given a photo \(d\), we can reconstruct the distribution of real point source of maximum likelihood by expectaction maximization algorithm:
+            \[u_{t + 1} = u_{t} \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
+
+            ,where \(\hat{p}_{ij} = p_{(n-i)(m-j)}\) for \(d\) of shape \(n \times m\), and \(*\) is convolution operator, which is implemented with elementwise multiplication in frequence domain.
+            
+            <h3>Biggs Andrew Acceleration</h3>
+            It is an acceleration of Richard-Lucy's algorithm proposed by Biggs and Andrew. Let the original Richard-Lucy's iteration be \(\phi\), namely
+
+            \[u_{t + 1} = \phi(u_t) = u_t \cdot \left( \frac{d}{u_t * p} * \hat{p} \right)\]
+
+            Consider a image is a point in high dimension space, then the optimization process is to finding a point with maximum likelihood iteratively. The original Richard-Lucy's alogithm maximize the likelihood by applying \(\phi\) times and times in each iteration. To accelerate it, Biggs and Andrew proposed to go to some direction \(h\) times some acceleration factor \(\alpha\) between each two iterations (namely apply \(\phi\)). That is, after an iteration, we can get
+            
+            \[ x_k = \phi(y_{k-1}) \]
+            
+            Then the direction \(h\) is computed from
+
+            \[ h_k = x_k - x_{k-1} \]
+
+            and the accelerate factor \(\alpha\) is from
+
+            \[ \alpha = \frac{(x_k - y_{k-1}) \cdot (x_{k - 1} - y_{k-2})}{\lVert x_{k - 1} - y_{k-2} \rVert_2} \]
+
+            So between each itrations \(x_k\) and \(x_{k+1}\), an intermediate prediction \(y_k\) is computed
+
+            \[ y_k = x_k + \alpha_k h_k \]
+
+            It is the first order acceleration. Furthermore, it can be extended to second or more order acceleration. However, we did only implement the first order acceleration for now.
+            
+            <h3>Total Variation Regularization</h3>
+
+            The original Richard-Lucy's algorithm often converges to a maximum likelihood image but the image may be noisy. Thus, the total variation loss can be added to act as regularization. After some more math conductions, it turns out that only a little bit of modification of original iteration is required:
+
+            \[u_{(t + 1)} = \phi(u_t) = \frac{u_{t}}{1 - \lambda \mathrm{div}(\frac{\nabla u_t}{|\nabla u_t|}) } \cdot \left( \frac{d}{u_{t} * p} * \hat{p} \right)\]
+                        
+            <h2>Benchmark</h2>
+
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/sample.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">Original Image</figcaption>
+                </figure>
+            </div>
+
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_10.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 10 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_100.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 100 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/result_1000.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 1000 updates</figcaption>
+                </figure>
+            </div>
+            
+            <img class="img-responsive"
+                 src="./benchmark/basic_rl_lineprofile.png">            
+
+            <h3>Original Richard-Lucy's Algorithm</h3>
+
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/baseline/iter10_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 10 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/baseline/iter100_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 100 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/baseline/iter1000_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 1000 updates</figcaption>
+                </figure>
+            </div>
+
+            <h3>Biggs Andrew Acceleration</h3>
+
+            <div class="row">
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/accelerated/iter10_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 10 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/accelerated/iter100_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 100 updates</figcaption>
+                </figure>
+                <figure class="figure col-md-4">
+                    <img src="./benchmark/accelerated/iter1000_mid.jpg"
+                         class="figure-img img-fluid rounded img-responsive">
+                    <figcaption class="figure-caption">After 1000 updates</figcaption>
+                </figure>
+            </div>
+
+            
+            
+            <h2>References</h2>
+            <ul>
+                <li>William Hadley Richardson  (1972), "Bayesian-Based Iterative Method of Image Restoration*," J. Opt. Soc. Am. 62, 55-59.</li>
+                <li> Lucy, L. B. (1974). "An iterative technique for the rectification of observed distributions". Astronomical Journal. 79 (6): 745–754.</li>
+                <li>Biggs, D. S., & Andrews, M. (1997). Acceleration of iterative image restoration algorithms. Applied optics, 36(8), 1766-1775.</li>
+                <li>Dey, N., Blanc-Féraud, L., Zimmer, C., Roux, P., Kam, Z., Olivo-Marin, J. C., & Zerubia, J. (2004). 3D microscopy deconvolution using Richardson-Lucy algorithm with total variation regularization (Doctoral dissertation, INRIA).</li>
+            </ul>
+        </main>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.0/gh-fork-ribbon.min.css" />
+        <a class="github-fork-ribbon"
+           href="https://github.com/liuyenting/DeconvLR"
+           title="Fork me on GitHub">Fork me on GitHub</a>
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
+    </body>
+</html>

@@ -1,8 +1,9 @@
 // corresponded header file
-#include "DeconvLRDriver.hpp"
+#include "DeconvRLDriver.hpp"
 // necessary project headers
-#include "DeconvLRCore.cuh"
+#include "DeconvRLImpl.cuh"
 #include "Helper.cuh"
+#include "DumpData.cuh"
 // 3rd party libraries headers
 #include <cuda_runtime.h>
 // standard libraries headers
@@ -10,10 +11,10 @@
 #include <cstdio>
 // system headers
 
-struct DeconvLR::Impl {
-    Impl()
-        : iterations(10) {
+namespace DeconvRL {
 
+struct DeconvRL::Impl {
+    Impl() {
     }
 
     ~Impl() {
@@ -32,7 +33,7 @@ struct DeconvLR::Impl {
      * Algorithm configurations.
      */
     int iterations;
-    Core::RL::Parameters iterParms;
+    Core::Parameters iterParms;
 };
 
 // C++14 feature
@@ -41,15 +42,15 @@ std::unique_ptr<T> make_unique(Args&& ... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args) ...));
 }
 
-DeconvLR::DeconvLR()
+DeconvRL::DeconvRL()
     : pimpl(make_unique<Impl>()) {
 }
 
-DeconvLR::~DeconvLR() {
+DeconvRL::~DeconvRL() {
 
 }
 
-void DeconvLR::setResolution(
+void DeconvRL::setResolution(
     const float dx, const float dy, const float dz,
     const float dpx, const float dpy, const float dpz
 ) {
@@ -70,7 +71,7 @@ void DeconvLR::setResolution(
     pimpl->voxelSize.psf = make_float3(dpx, dpy, dpz);
 }
 
-void DeconvLR::setVolumeSize(
+void DeconvRL::setVolumeSize(
     const size_t nx, const size_t ny, const size_t nz
 ) {
     //TODO probe for device specification
@@ -83,109 +84,44 @@ void DeconvLR::setVolumeSize(
 
     fprintf(
         stderr,
-        "[INFO] volume size = %ldx%ldx%ld\n",
+        "[INF] volume size = %ux%ux%u\n",
         pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
 }
 
-/*
- * ===========
- * PSF AND OTF
- * ===========
- */
-void DeconvLR::setPSF(const ImageStack<uint16_t> &psf_u16) {
-    fprintf(stderr, "[DEBUG] --> setPSF()\n");
-
+//TODO remove ImageStack dependency
+void DeconvRL::setPSF(const ImageStack<uint16_t> &psf_u16) {
     /*
      * Ensure we are working with floating points.
      */
     ImageStack<float> psf(psf_u16);
     fprintf(
         stderr,
-        "[INFO] PSF size = %ldx%ldx%ld\n",
+        "[INF] PSF size = %ldx%ldx%ld\n",
         psf.nx(), psf.ny(), psf.nz()
     );
 
     /*
-     * Align the PSF to center.
+     * Generate the OTF.
      */
-    PSF::removeBackground(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    float3 centroid = PSF::findCentroid(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    fprintf(
-        stderr,
-        "[INFO] centroid = (%.2f, %.2f, %.2f)\n",
-        centroid.x, centroid.y, centroid.z
+    PSF::PSF psfProc(psf.data(), psf.nx(), psf.ny(), psf.nz());
+    psfProc.alignCenter(
+        pimpl->volumeSize.x, pimpl->volumeSize.y, pimpl->volumeSize.z
     );
 
-    /*
-     * Shift the PSF around the centroid.
-     */
-    PSF::bindData(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    PSF::alignCenter(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz(),
-        centroid
-    );
-    fprintf(stderr, "[DEBUG] PSF aligned to center\n");
-    PSF::release();
-
-    psf.saveAs("psf_aligned.tif");
-
-    /*
-     * Generate OTF texture.
-     */
-    OTF::fromPSF(
-        psf.data(),
-        psf.nx(), psf.ny(), psf.nz()
-    );
-    fprintf(stderr, "[DEBUG] template OTF generated\n");
-
-    CImg<float> otfTpl(psf.nx()/2+1, psf.ny(), psf.nz());
-    OTF::dumpTemplate(
-        otfTpl.data(),
-        otfTpl.width(), otfTpl.height(), otfTpl.depth()
-    );
-    otfTpl.save_tiff("otf_template.tif");
-
-    // allocate OTF memory
+    // allocate memory space for OTF
     cudaErrChk(cudaMalloc(
         &pimpl->iterParms.otf,
         (pimpl->volumeSize.x/2+1) * pimpl->volumeSize.y * pimpl->volumeSize.z * sizeof(cufftComplex)
     ));
-    // start the interpolation
-    OTF::interpolate(
-        pimpl->iterParms.otf,
-        pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z,
-        psf.nx()/2+1, psf.ny(), psf.nz(),
-        pimpl->voxelSize.raw.x, pimpl->voxelSize.raw.y, pimpl->voxelSize.raw.z,
-        pimpl->voxelSize.psf.x, pimpl->voxelSize.psf.y, pimpl->voxelSize.psf.z
-    );
-    OTF::release();
-    fprintf(stderr, "[INFO] OTF established\n");
-
-    CImg<float> otfCalc(pimpl->volumeSize.x/2+1, pimpl->volumeSize.y, pimpl->volumeSize.z);
-    OTF::dumpComplex(
-        otfCalc.data(),
-        pimpl->iterParms.otf,
-        otfCalc.width(), otfCalc.height(), otfCalc.depth()
-    );
-    otfCalc.save_tiff("otf_interp.tif");
-
-	fprintf(stderr, "[DEBUG] setPSF() -->\n");
+    // create the OTF
+    psfProc.createOTF(pimpl->iterParms.otf);
+    fprintf(stderr, "[INF] OTF established\n");
 }
 
-void DeconvLR::initialize() {
+void DeconvRL::initialize() {
     const dim3 volumeSize = pimpl->volumeSize;
-    Core::RL::Parameters &iterParms = pimpl->iterParms;
+    Core::Parameters &iterParms = pimpl->iterParms;
 
     /*
      * Load dimension information into the iteration parameter.
@@ -219,56 +155,121 @@ void DeconvLR::initialize() {
      /*
       * Allocate device staging area.
       */
-     const size_t wsSize =
-        (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
-     cudaErrChk(cudaMalloc(&iterParms.bufferA.complex, wsSize));
-     cudaErrChk(cudaMalloc(&iterParms.bufferB.complex, wsSize));
+      size_t realSize =
+          volumeSize.x * volumeSize.y * volumeSize.z * sizeof(cufftReal);
+      size_t complexSize =
+          (volumeSize.x/2+1) * volumeSize.y * volumeSize.z * sizeof(cufftComplex);
+
+     // template
+     cudaErrChk(cudaMalloc((void **)&iterParms.raw, realSize));
+
+     // IO buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.input, realSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.ioBuffer.output, realSize));
+
+     // FFT Buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.filterBuffer.complexA, complexSize));
+
+     // RL Buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.RLBuffer.realA, realSize));
+
+     // prediction buffer
+     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevIter, realSize));
+     cudaErrChk(cudaMalloc((void **)&iterParms.predBuffer.prevPredChg, realSize));
 }
 
-void DeconvLR::process(
-	ImageStack<uint16_t> &odata_u16,
-	const ImageStack<uint16_t> &idata_u16
+void DeconvRL::setIterations(const int i) {
+    if (i < 1) {
+        throw std::range_error("iteration cycle has to be at least 1");
+    }
+    pimpl->iterations = i;
+}
+
+//TODO scale output from float to uint16
+void DeconvRL::process(
+	ImageStack<float> &odata,
+	const ImageStack<uint16_t> &idata
 ) {
-    const dim3 volumeSize = pimpl->volumeSize;
-    Core::RL::Parameters &iterParms = pimpl->iterParms;
+    Core::Parameters &iterParms = pimpl->iterParms;
+    const size_t nelem = iterParms.nelem;
+
+    // register the input data memory region on host as pinned
+    cudaErrChk(cudaHostRegister(
+        idata.data(),
+        nelem * sizeof(uint16_t),
+        cudaHostRegisterMapped
+    ));
+
+    // retrieve the host pointer
+    uint16_t *d_idata = nullptr;
+    cudaErrChk(cudaHostGetDevicePointer(&d_idata, idata.data(), 0));
 
     /*
-     * Ensure we are working with floating points.
+     * Copy the data to buffer area along with type casts.
      */
-    ImageStack<float> idata(idata_u16);
+    fprintf(stderr, "[DBG] %ld elements to type cast\n", nelem);
+    Common::ushort2float(
+        iterParms.ioBuffer.input,   // output
+        d_idata,                    // input
+        nelem
+    );
+
+    // duplicate the to store a copy of raw data
+    cudaErrChk(cudaMemcpy(
+        iterParms.raw,
+        iterParms.ioBuffer.input,
+        nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
 
     /*
-     * Copy the input data from host to staging area.
+     * Release the pinned memory region.
      */
-     // use cudaMemcpy3D for maximum extensibility
-     cudaMemcpy3DParms cpParms = {0};
-     cpParms.srcPtr = make_cudaPitchedPtr(
-         idata.data(),
-         volumeSize.x * sizeof(float), volumeSize.x, volumeSize.y
-     );
-     cpParms.dstPtr = make_cudaPitchedPtr(
-         iterParms.bufferA.real,
-         iterParms.nx * sizeof(float), iterParms.nx, iterParms.ny
-     );
-     cpParms.extent = make_cudaExtent(
-         volumeSize.x, volumeSize.y, volumeSize.z
-     );
-     cpParms.kind = cudaMemcpyHostToDevice;
-     cudaErrChk(cudaMemcpy3D(&cpParms));
+    cudaErrChk(cudaHostUnregister(idata.data()));
+
+    // preset the iteration
+    cudaErrChk(cudaMemcpy(
+        iterParms.predBuffer.prevIter,
+        iterParms.ioBuffer.input,
+        nelem * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    ));
+    cudaErrChk(cudaMemset(
+        iterParms.predBuffer.prevPredChg,
+        0,
+        nelem * sizeof(float)
+    ));
 
     /*
      * Execute the core functions.
      */
     const int nIter = pimpl->iterations;
-    for (int iIter = 0; iIter < nIter; iIter++) {
-        Core::RL::step(
-            iterParms.bufferB.real, // output
-            iterParms.bufferA.real, // input
+    for (int iIter = 1; iIter <= nIter; iIter++) {
+        //Core::RL::step(
+        Core::Biggs::step(
+            iterParms.ioBuffer.output,  // output
+            iterParms.ioBuffer.input,   // input
             iterParms
         );
         // swap A, B buffer
-        std::swap(iterParms.bufferA, iterParms.bufferB);
+        std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
+
+        fprintf(stderr, "[INF] %d/%d\n", iIter, nIter);
     }
-    // copy back the data
+
+    // swap back to avoid confusion
+    std::swap(iterParms.ioBuffer.input, iterParms.ioBuffer.output);
+
+    // noarmalize the result to [0, 65535]
+
+
+    // copy back to host
+    cudaErrChk(cudaMemcpy(
+        odata.data(),
+        iterParms.ioBuffer.output,
+        nelem * sizeof(cufftReal),
+        cudaMemcpyDeviceToHost
+    ));
+}
 
 }

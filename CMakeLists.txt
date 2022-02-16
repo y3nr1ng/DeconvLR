@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.6)
 
-project (deconvrl)
+project (deconvlr)
 set (CMAKE_BUILD_TYPE Debug)
 
 # set output directories
@@ -47,8 +47,8 @@ add_compile_options (-std=c++11)
 include_directories ("${PROJECT_SOURCE_DIR}/include")
 
 # generate the shared library
-cuda_add_library (deconvrl SHARED ${SOURCES})
-target_link_libraries (deconvrl ${Boost_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUFFT_LIBRARIES} tiff ${X11_LIBRARIES})
+cuda_add_library (deconvlr SHARED ${SOURCES})
+target_link_libraries (deconvlr ${Boost_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUFFT_LIBRARIES} tiff ${X11_LIBRARIES})
 
 # build demo program
 add_subdirectory ("util")

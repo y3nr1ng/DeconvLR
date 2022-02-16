@@ -12,11 +12,16 @@
 #include <cstdlib>
 // system headers
 
-#define cudaErrChk(ans) { cudaAssert((ans), __FILE__, __LINE__); }
+/*
+ * Kernel thread size computation.
+ */
+#define DIVUP(x, y) ((x+y-1)/y)
 
 /*
  * CUDA Runtime
  */
+#define cudaErrChk(ans) { cudaAssert((ans), __FILE__, __LINE__); }
+
 inline void cudaAssert(
 	cudaError_t code,
 	const char *file, int line,

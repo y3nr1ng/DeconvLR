@@ -1,7 +1,7 @@
 // corresponded header file
 // necessary project headers
 #include "ImageStack.hpp"
-#include "DeconvLRDriver.hpp"
+#include "DeconvRLDriver.hpp"
 // 3rd party libraries headers
 // standard libraries headers
 #include <cstdint>
@@ -13,25 +13,27 @@ int main(void)
     TIFFSetWarningHandler(NULL);
 
     std::string origImgFile = "data/bigradient/sample.tif";
-    //std::string psfFile = "data/centroid/centroid_matlab_x20_y40_z80.tif";
-    std::string psfFile = "data/bigradient/psf_n15_z5.tif";
+    std::string psfFile = "data/bigradient/psf.tif";
 
     // scan the folder
     // search and load the otf
     ImageStack<uint16_t> psf(psfFile);
     // init the deconvlr
-    DeconvLR deconvWorker;
+    DeconvRL::DeconvRL deconvWorker;
     deconvWorker.setResolution(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     // iterate through the images
     //      open the image
     const ImageStack<uint16_t> input(origImgFile);
-    ImageStack<uint16_t> output(input, 0);
+    ImageStack<float> output(input, 0);
     //      use the first image to init the resources
     deconvWorker.setVolumeSize(input.nx(), input.ny(), input.nz());
     deconvWorker.setPSF(psf);
+    deconvWorker.initialize();
+    deconvWorker.setIterations(10);
     //      run the deconv
     deconvWorker.process(output, input);
     //      save the image
+    output.saveAs("result.tif");
     // save the log
     // release the resources
 
